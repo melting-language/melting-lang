@@ -34,14 +34,14 @@ make
 
 This creates the **`bin/melt`** executable (the `bin/` directory is created if needed).
 
-## Examples (submodule)
+## Submodules
 
-The **`examples/`** folder is a Git submodule. To get it:
+This repo uses submodules for **`examples/`** and **`syntax_highlighter_extension/`** (VS Code extension lives in `syntax_highlighter_extension/vs_code_extension/`). To get them:
 
 - **Fresh clone:** `git clone --recurse-submodules https://github.com/melting-language/melting-lang.git`
 - **Existing clone:** `git submodule update --init --recursive`
 
-(See [EXAMPLES_SUBMODULE.md](EXAMPLES_SUBMODULE.md) if you need to set up the submodule for the first time.)
+Setup guides: [EXAMPLES_SUBMODULE.md](EXAMPLES_SUBMODULE.md), [SYNTAX_HIGHLIGHTER_SUBMODULE.md](SYNTAX_HIGHLIGHTER_SUBMODULE.md).
 
 ## Install (binary)
 
