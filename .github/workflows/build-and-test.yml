@@ -1,0 +1,54 @@
+# Build and test the Melt language (C++ interpreter)
+# Uses Makefile; runs on Linux and macOS with GCC and Clang.
+name: Build and Test
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  build-and-test:
+    runs-on: ${{ matrix.os }}
+
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+        compiler: [gcc, clang]
+        include:
+          - os: ubuntu-latest
+            compiler: gcc
+            cxx: g++
+          - os: ubuntu-latest
+            compiler: clang
+            cxx: clang++
+          - os: macos-latest
+            compiler: gcc
+            cxx: g++
+          - os: macos-latest
+            compiler: clang
+            cxx: clang++
+        exclude:
+          # On macOS, system gcc is often a clang alias; use clang for macOS.
+          - os: macos-latest
+            compiler: gcc
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Build (Make)
+        run: make CXX=${{ matrix.cxx }}
+
+      - name: Test — run built-in demo (no args)
+        run: ./bin/melt
+
+      - name: Test — run example.melt
+        run: ./bin/melt example.melt
+
+      - name: Test — run example_oop.melt
+        run: ./bin/melt example_oop.melt
