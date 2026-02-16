@@ -24,11 +24,6 @@ jobs:
           - os: ubuntu-latest
             compiler: clang
             cxx: clang++
-        exclude:
-          # On macOS, system gcc is often a clang alias; use clang for macOS.
-          - os: macos-latest
-            compiler: gcc
-
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
