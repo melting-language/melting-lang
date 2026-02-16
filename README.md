@@ -34,6 +34,15 @@ make
 
 This creates the **`bin/melt`** executable (the `bin/` directory is created if needed).
 
+## Examples (submodule)
+
+The **`examples/`** folder is a Git submodule. To get it:
+
+- **Fresh clone:** `git clone --recurse-submodules https://github.com/melting-language/melting-lang.git`
+- **Existing clone:** `git submodule update --init --recursive`
+
+(See [EXAMPLES_SUBMODULE.md](EXAMPLES_SUBMODULE.md) if you need to set up the submodule for the first time.)
+
 ## Install (binary)
 
 Install the `melt` binary so you can run it from anywhere:
