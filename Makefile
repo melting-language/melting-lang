@@ -36,4 +36,9 @@ uninstall:
 clean:
 	rm -f $(TARGET)
 
-.PHONY: all run clean with-mysql install uninstall
+# CI build: same as 'all' but ensure no MySQL linkage (avoids dyld load errors on runners).
+ci: MYSQL_CFLAGS :=
+ci: MYSQL_LIBS :=
+ci: $(TARGET)
+
+.PHONY: all run clean with-mysql install uninstall ci

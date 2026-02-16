@@ -43,7 +43,11 @@ jobs:
         # repo-root files (example.melt, example_oop.melt).
 
       - name: Build (Make)
-        run: make CXX=${{ matrix.cxx }}
+        run: make ci CXX=${{ matrix.cxx }}
+        env:
+          # Ensure no MySQL linkage so the binary runs on runners without libmysqlclient.
+          MYSQL_CFLAGS: ""
+          MYSQL_LIBS: ""
 
       - name: Test — run built-in demo (no args)
         run: ./bin/melt
