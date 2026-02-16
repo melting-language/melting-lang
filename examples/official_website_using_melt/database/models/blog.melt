@@ -1,0 +1,11 @@
+// Blog post model — used by BlogController to hold rows from blog_posts table.
+
+class BlogPost {
+    method init() {
+        this.id = 0;
+        this.title = "";
+        this.body = "";
+        this.published = 0;
+        this.created_at = "";
+    }
+}

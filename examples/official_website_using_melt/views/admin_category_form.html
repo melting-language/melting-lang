@@ -1,0 +1,18 @@
+<div class="admin-form-card">
+  <div class="mb-4">
+    <h1 class="h4 mb-1">{{ formTitle }}</h1>
+    <p class="text-muted small mb-0">{{ formSubtitle }}</p>
+  </div>
+  {!! errorHtml !!}
+  <form method="post" action="{{ formAction }}" enctype="application/x-www-form-urlencoded">
+    {!! idFieldHtml !!}
+    <div class="mb-4">
+      <label for="category-name" class="form-label fw-semibold">Name</label>
+      <input type="text" id="category-name" name="name" class="form-control" value="{{ nameValue }}" placeholder="Category name" required maxlength="255" autocomplete="off">
+    </div>
+    <div class="d-flex flex-wrap gap-2 pt-2">
+      <button type="submit" class="btn btn-primary px-4">{{ submitLabel }}</button>
+      <a href="/admin/categories" class="btn btn-outline-secondary">Cancel</a>
+    </div>
+  </form>
+</div>

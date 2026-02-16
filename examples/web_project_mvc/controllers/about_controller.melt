@@ -1,0 +1,11 @@
+import "../views/layout.melt";
+
+class AboutController {
+    method index() {
+        let view = View();
+        view.renderAbout();
+        setResponseBody(view.output);
+        setResponseStatus(200);
+        return;
+    }
+}

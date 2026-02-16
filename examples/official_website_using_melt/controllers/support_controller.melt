@@ -1,0 +1,11 @@
+import "../views/layout.melt";
+
+class SupportController {
+    method index() {
+        let view = View();
+        view.renderSupport();
+        setResponseBody(view.output);
+        setResponseStatus(200);
+        return;
+    }
+}

@@ -1,0 +1,191 @@
+import "../config/app.melt";
+
+class ViewData {
+    method init() {}
+}
+
+class View {
+    method init() {
+        this.output = "";
+    }
+
+    method renderHome() {
+        let data = ViewData();
+        data.tagline = app.tagline;
+        let body = renderView("views/home.html", data);
+        let layoutData = ViewData();
+        layoutData.title = "Home — " + app.name;
+        layoutData.content = body;
+        layoutData.active = "home";
+        this.output = renderView("views/layout.html", layoutData);
+    }
+
+    method renderDocumentation() {
+        let body = renderView("views/documentation.html", ViewData());
+        let layoutData = ViewData();
+        layoutData.title = "Documentation — " + app.name;
+        layoutData.content = body;
+        layoutData.active = "documentation";
+        this.output = renderView("views/layout.html", layoutData);
+    }
+
+    method renderAbout() {
+        let body = renderView("views/about.html", ViewData());
+        let layoutData = ViewData();
+        layoutData.title = "About — " + app.name;
+        layoutData.content = body;
+        layoutData.active = "about";
+        this.output = renderView("views/layout.html", layoutData);
+    }
+
+    method renderResource() {
+        let body = renderView("views/resource.html", ViewData());
+        let layoutData = ViewData();
+        layoutData.title = "Resources — " + app.name;
+        layoutData.content = body;
+        layoutData.active = "resource";
+        this.output = renderView("views/layout.html", layoutData);
+    }
+
+    method renderSupport() {
+        let body = renderView("views/support.html", ViewData());
+        let layoutData = ViewData();
+        layoutData.title = "Support — " + app.name;
+        layoutData.content = body;
+        layoutData.active = "support";
+        this.output = renderView("views/layout.html", layoutData);
+    }
+
+    method renderBlog(posts, errorMessage) {
+        let postsHtml = "";
+        let i = 0;
+        while (i < arrayLength(posts)) {
+            let post = arrayGet(posts, i);
+            let bodyEsc = escapeHtml(post.body);
+            let bodyBr = replaceString(bodyEsc, "\n", "<br>");
+            let draftLabel = "";
+            if (post.published != "1") draftLabel = " <span class=\"draft-badge\">Draft</span>";
+            postsHtml = postsHtml + "<article class=\"blog-teaser\"><h2>" + escapeHtml(post.title) + draftLabel + "</h2><p class=\"meta\">" + escapeHtml(post.created_at) + "</p><div class=\"post-body\">" + bodyBr + "</div></article>";
+            i = i + 1;
+        }
+        if (postsHtml == "") {
+            postsHtml = "<p class=\"empty\">No posts yet. <a href=\"/blog/new\">Create one</a>.</p>";
+            if (errorMessage == "") {
+                postsHtml = postsHtml + "<p class=\"empty-hint\">If the database has posts, check that <code>config/database.melt</code> uses the same database and that Melt was built with <code>make with-mysql</code>.</p>";
+            }
+        }
+        if (errorMessage != "") {
+            let errEsc = escapeHtml(errorMessage);
+            errEsc = replaceString(errEsc, "\n", "<br>");
+            postsHtml = "<div class=\"blog-error\"><strong>Error loading blog:</strong> " + errEsc + "</div>" + postsHtml;
+        }
+        let data = ViewData();
+        data.postsHtml = postsHtml;
+        let body = renderView("views/blog.html", data);
+        let layoutData = ViewData();
+        layoutData.title = "Blog — " + app.name;
+        layoutData.content = body;
+        layoutData.active = "blog";
+        this.output = renderView("views/layout.html", layoutData);
+    }
+
+    method renderBlogNew() {
+        let body = renderView("views/blog_new.html", ViewData());
+        let layoutData = ViewData();
+        layoutData.title = "New Post — " + app.name;
+        layoutData.content = body;
+        layoutData.activeDashboard = "";
+        layoutData.activeNewPost = "active";
+        layoutData.activeCategories = "";
+        this.output = renderView("views/layout_admin.html", layoutData);
+    }
+
+    method renderBlogCreated() {
+        let body = renderView("views/blog_created.html", ViewData());
+        let layoutData = ViewData();
+        layoutData.title = "Post created — " + app.name;
+        layoutData.content = body;
+        layoutData.activeDashboard = "";
+        layoutData.activeNewPost = "";
+        layoutData.activeCategories = "";
+        this.output = renderView("views/layout_admin.html", layoutData);
+    }
+
+    method renderAdminLogin(errorHtml) {
+        let data = ViewData();
+        data.errorHtml = errorHtml;
+        let body = renderView("views/admin_login.html", data);
+        let layoutData = ViewData();
+        layoutData.title = "Admin login — " + app.name;
+        layoutData.content = body;
+        layoutData.activeDashboard = "";
+        layoutData.activeNewPost = "";
+        layoutData.activeCategories = "";
+        this.output = renderView("views/layout_admin.html", layoutData);
+    }
+
+    method renderAdminPanel(postsTableHtml, successAlertHtml) {
+        let data = ViewData();
+        data.postsTableHtml = postsTableHtml;
+        data.successAlertHtml = successAlertHtml;
+        let body = renderView("views/admin_panel.html", data);
+        let layoutData = ViewData();
+        layoutData.title = "Admin — " + app.name;
+        layoutData.content = body;
+        layoutData.activeDashboard = "active";
+        layoutData.activeCategories = "";
+        this.output = renderView("views/layout_admin.html", layoutData);
+    }
+
+    method renderAdminCategories(categoriesTableHtml, successAlertHtml) {
+        let data = ViewData();
+        data.categoriesTableHtml = categoriesTableHtml;
+        data.successAlertHtml = successAlertHtml;
+        let body = renderView("views/admin_categories.html", data);
+        let layoutData = ViewData();
+        layoutData.title = "Categories — " + app.name;
+        layoutData.content = body;
+        layoutData.activeDashboard = "";
+        layoutData.activeCategories = "active";
+        this.output = renderView("views/layout_admin.html", layoutData);
+    }
+
+    method renderAdminCategoryForm(id, name, errorHtml) {
+        let data = ViewData();
+        data.errorHtml = errorHtml;
+        data.idFieldHtml = "";
+        data.nameValue = name;
+        data.formTitle = "New category";
+        data.formSubtitle = "Add a blog category.";
+        data.formAction = "/admin/categories";
+        data.submitLabel = "Create category";
+        if (id != "") {
+            data.idFieldHtml = "<input type=\"hidden\" name=\"id\" value=\"" + escapeHtml(id) + "\">";
+            data.nameValue = name;
+            data.formTitle = "Edit category";
+            data.formSubtitle = "Update the category name.";
+            data.formAction = "/admin/categories/update";
+            data.submitLabel = "Update category";
+        }
+        let body = renderView("views/admin_category_form.html", data);
+        let layoutData = ViewData();
+        let pageTitle = "New category";
+        if (id != "") pageTitle = "Edit category";
+        layoutData.title = pageTitle + " — " + app.name;
+        layoutData.content = body;
+        layoutData.activeDashboard = "";
+        layoutData.activeCategories = "active";
+        this.output = renderView("views/layout_admin.html", layoutData);
+    }
+
+    method renderNotFound(path) {
+        let data = ViewData();
+        data.path = path;
+        let body = renderView("views/404.html", data);
+        let layoutData = ViewData();
+        layoutData.title = "Not Found — " + app.name;
+        layoutData.content = body;
+        layoutData.active = "";
+        this.output = renderView("views/layout.html", layoutData);
+    }
+}

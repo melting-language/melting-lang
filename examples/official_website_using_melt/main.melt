@@ -1,0 +1,14 @@
+import "config/app.melt";
+import "routes.melt";
+
+class App {
+    method handle() {
+        let path = getRequestPath();
+        Router().dispatch(path);
+    }
+}
+
+setHandler("App");
+print "Melt official website: http://localhost:" + app.port;
+print "  Home · Documentation · About · Resource · Support · Blog";
+listen(app.port);

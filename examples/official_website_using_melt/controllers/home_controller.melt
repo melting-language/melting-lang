@@ -1,0 +1,11 @@
+import "../views/layout.melt";
+
+class HomeController {
+    method index() {
+        let view = View();
+        view.renderHome();
+        setResponseBody(view.output);
+        setResponseStatus(200);
+        return;
+    }
+}

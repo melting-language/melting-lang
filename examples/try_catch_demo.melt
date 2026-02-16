@@ -1,0 +1,18 @@
+// try/catch and throw demo
+print("before try");
+try {
+    print("inside try");
+    throw "something went wrong";
+    print("after throw (not reached)");
+} catch (err) {
+    print("caught: " + err);
+}
+print("after try-catch");
+
+try {
+    throw 42;
+} catch (n) {
+    print("number: " + n);
+}
+
+print("done");

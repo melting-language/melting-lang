@@ -1,0 +1,13 @@
+// App configuration: name, port, tagline, debug.
+// Import this file from main.melt and views/layout.melt; use the global `app` object.
+
+class AppConfig {
+    method init() {
+        this.name = "Melt MVC";
+        this.port = 8080;
+        this.tagline = "A small website built with the Melt language — Model, View, Controller.";
+        this.debug = 0;
+    }
+}
+
+let app = AppConfig();

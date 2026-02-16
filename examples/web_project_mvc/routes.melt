@@ -1,0 +1,21 @@
+import "controllers/home_controller.melt";
+import "controllers/items_controller.melt";
+import "controllers/about_controller.melt";
+import "controllers/not_found_controller.melt";
+
+class Router {
+    method dispatch(path) {
+        if (servePublic(path)) return;
+        if (path == "/") {
+            HomeController().index();
+        } else if (path == "/index") {
+            HomeController().index();
+        } else if (path == "/items") {
+            ItemsController().index();
+        } else if (path == "/about") {
+            AboutController().index();
+        } else {
+            NotFoundController().show(path);
+        }
+    }
+}

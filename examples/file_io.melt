@@ -1,0 +1,14 @@
+let path = "examples/hello.melt";
+let content = readFile(path);
+print content;
+
+let outPath = "examples/out.txt";
+let ok = writeFile(outPath, "Hello from Melt file write!");
+if (ok) {
+    print "Wrote ";
+    print outPath;
+    let back = readFile(outPath);
+    print back;
+} else {
+    print "Write failed";
+}

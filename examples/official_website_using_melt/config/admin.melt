@@ -1,0 +1,11 @@
+// Admin login config. Change username, password, and sessionSecret for production.
+
+class AdminConfig {
+    method init() {
+        this.username = "admin";
+        this.password = "melt2025";
+        this.sessionSecret = "melt_admin_secret_change_me";
+    }
+}
+
+let admin = AdminConfig();

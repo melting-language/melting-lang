@@ -1,0 +1,14 @@
+let ok = mysqlConnect("127.0.0.1", "root", "your_password", "melt_test");
+if (ok) {
+    print "Connected to MySQL";
+    let qok = mysqlQuery("SELECT 1 AS one, 'hello' AS msg");
+    if (qok) {
+        let row = mysqlFetchRow();
+        print row;
+        let row2 = mysqlFetchRow();
+        print row2;
+    }
+    mysqlClose();
+} else {
+    print "Connection failed";
+}

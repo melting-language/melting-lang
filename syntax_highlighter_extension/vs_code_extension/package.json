@@ -1,0 +1,39 @@
+{
+  "name": "melt-language",
+  "displayName": "Melt Language",
+  "description": "Syntax highlighting and language support for the Melt programming language",
+  "version": "0.1.0",
+  "publisher": "melt-lang",
+  "engines": {
+    "vscode": "^1.74.0"
+  },
+  "categories": [
+    "Programming Languages"
+  ],
+  "contributes": {
+    "languages": [
+      {
+        "id": "melt",
+        "aliases": [
+          "Melt",
+          "melt"
+        ],
+        "extensions": [
+          ".melt"
+        ],
+        "configuration": "./language-configuration.json",
+        "icon": {
+          "light": "./icons/melt.svg",
+          "dark": "./icons/melt.svg"
+        }
+      }
+    ],
+    "grammars": [
+      {
+        "language": "melt",
+        "scopeName": "source.melt",
+        "path": "./syntaxes/melt.tmLanguage.json"
+      }
+    ]
+  }
+}

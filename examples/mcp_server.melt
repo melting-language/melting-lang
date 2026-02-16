@@ -1,0 +1,28 @@
+// Minimal MCP-style stdio server: one JSON-RPC message per line on stdin, one response per line on stdout.
+// Run: echo '{"jsonrpc":"2.0","id":1,"method":"ping"}' | ./bin/melt examples/mcp_server.melt
+// Handler uses getMcpRequest(), jsonDecode(), setMcpResponse(jsonEncode(...)).
+
+class McpServer {
+    method handle() {
+        let raw = getMcpRequest();
+        let req = jsonDecode(raw);
+        let id = 0;
+        if (req != false) {
+            id = req.id;
+        }
+        let res = "pong";
+        let response = RpcResponse(id, res);
+        setMcpResponse(jsonEncode(response));
+    }
+}
+
+class RpcResponse {
+    method init(id, res) {
+        this.jsonrpc = "2.0";
+        this.id = id;
+        this.result = res;
+    }
+}
+
+setMcpHandler("McpServer");
+runMcp();

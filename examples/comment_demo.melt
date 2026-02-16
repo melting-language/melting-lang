@@ -1,0 +1,15 @@
+// Single-line comment: print greeting
+print "Hello";
+
+/* Block comment:
+   the next line sets x
+*/
+let x = 10;
+print x;  // show x
+
+/*
+  Multi-line block
+  let y = 0;  -- ignored
+*/
+let y = 5;
+print y;

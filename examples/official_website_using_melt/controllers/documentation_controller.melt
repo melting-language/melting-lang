@@ -1,0 +1,18 @@
+import "../views/layout.melt";
+
+class DocumentationController {
+    method index() {
+        let docsHtml = readFile("../../docs/html/index.html");
+        if (docsHtml != "") {
+            setResponseBody(docsHtml);
+            setResponseStatus(200);
+            setResponseContentType("text/html; charset=utf-8");
+            return;
+        }
+        let view = View();
+        view.renderDocumentation();
+        setResponseBody(view.output);
+        setResponseStatus(200);
+        return;
+    }
+}

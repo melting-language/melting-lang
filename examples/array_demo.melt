@@ -1,0 +1,19 @@
+let a = [10, 20, 30];
+print a;
+print a[0];
+print a[1];
+a[1] = 99;
+print a;
+
+let b = arrayCreate();
+arrayPush(b, "hello");
+arrayPush(b, "world");
+print arrayLength(b);
+print arrayGet(b, 0);
+print arrayGet(b, 1);
+
+let i = 0;
+while (i < arrayLength(a)) {
+    print a[i];
+    i = i + 1;
+}

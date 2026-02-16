@@ -1,0 +1,13 @@
+let msg = "Hello, Melt!";
+let encoded = base64Encode(msg);
+print encoded;
+
+let decoded = base64Decode(encoded);
+print decoded;
+
+let key = "secret";
+let encrypted = xorCipher(msg, key);
+print encrypted;
+
+let decrypted = xorCipher(encrypted, key);
+print decrypted;

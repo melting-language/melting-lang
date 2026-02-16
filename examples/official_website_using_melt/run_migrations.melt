@@ -1,0 +1,46 @@
+// Run database migrations (blog_posts table).
+// Migrations live in database/migrations/. Requires: Melt built with MySQL (make with-mysql).
+// From project root: ./bin/melt examples/official_website_using_melt/run_migrations.melt
+
+import "config/database.melt";
+
+let ok = mysqlConnect(db.host, db.user, db.password, db.database);
+if (!ok) {
+    print "Migration failed: could not connect to database.";
+} else {
+    let createTable = "CREATE TABLE IF NOT EXISTS _migrations (name VARCHAR(255) PRIMARY KEY)";
+    let qok = mysqlQuery(createTable);
+    if (!qok) {
+        print "Migration failed: could not create _migrations table.";
+    } else {
+        let migrationFiles = ["001_create_blog_posts_table.sql", "002_create_blog_categories_table.sql"];
+        let i = 0;
+        while (i < arrayLength(migrationFiles)) {
+            let name = arrayGet(migrationFiles, i);
+            let checkQuery = "SELECT 1 FROM _migrations WHERE name = '" + name + "'";
+            mysqlQuery(checkQuery);
+            let row = mysqlFetchRow();
+            if (row != "") {
+                print "Skip (already run): " + name;
+            } else {
+                let path = "database/migrations/" + name;
+                let sql = readFile(path);
+                if (sql == "") {
+                    print "Warning: empty or missing " + path;
+                } else {
+                    let runOk = mysqlQuery(sql);
+                    if (runOk) {
+                        let insertQuery = "INSERT INTO _migrations (name) VALUES ('" + name + "')";
+                        mysqlQuery(insertQuery);
+                        print "Ran: " + name;
+                    } else {
+                        print "Error running: " + name;
+                    }
+                }
+            }
+            i = i + 1;
+        }
+    }
+    mysqlClose();
+    print "Migrations done.";
+}

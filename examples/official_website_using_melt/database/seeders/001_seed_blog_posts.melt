@@ -1,0 +1,20 @@
+// Seed blog_posts with sample data. Run via: ./bin/melt run_seeders.melt
+// Requires: migrations run first; Melt built with MySQL.
+
+import "../../config/database.melt";
+
+let ok = mysqlConnect(db.host, db.user, db.password, db.database);
+if (!ok) {
+    print "Seeder failed: could not connect to database.";
+} else {
+    let insert1 = "INSERT INTO blog_posts (title, body, published) VALUES ('Welcome to the Melt Blog', 'This is a sample post. You can edit or delete it from the database.', 1)";
+    let insert2 = "INSERT INTO blog_posts (title, body, published) VALUES ('Getting Started with Melt', 'Melt is a minimal OOP language. Build the interpreter with make, then run your first script.', 1)";
+    if (mysqlQuery(insert1)) {
+        print "Seeded: Welcome to the Melt Blog";
+    }
+    if (mysqlQuery(insert2)) {
+        print "Seeded: Getting Started with Melt";
+    }
+    mysqlClose();
+    print "Seeders done.";
+}

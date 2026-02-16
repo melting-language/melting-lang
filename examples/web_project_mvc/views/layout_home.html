@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>{{ title }}</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;500;700&family=JetBrains+Mono:wght@400&display=swap" rel="stylesheet">
+  <style>
+    *{box-sizing:border-box;}
+    body{margin:0;min-height:100vh;font-family:'Outfit',system-ui,sans-serif;background:linear-gradient(160deg,#0f1419 0%,#1a2332 50%,#0f1419 100%);color:#e6edf3;}
+    a{color:#7ee787;text-decoration:none;}
+    a:hover{text-decoration:underline;}
+    .wrap{max-width:680px;margin:0 auto;padding:3rem 1.5rem;}
+    .hero{margin-bottom:3rem;}
+    .hero h1{font-size:clamp(2.25rem,6vw,3.5rem);font-weight:700;letter-spacing:-0.02em;line-height:1.1;margin:0 0 0.75rem;}
+    .hero .tag{font-size:1.125rem;color:#8b949e;font-weight:300;}
+    .cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:1rem;}
+    .card{display:block;background:#21262d;border:1px solid #30363d;border-radius:12px;padding:1.5rem;transition:border-color .15s,background .15s;}
+    .card:hover{border-color:#7ee787;background:#262d37;}
+    .card h2{font-size:1.125rem;font-weight:600;margin:0 0 0.25rem;}
+    .card p{font-size:0.9rem;color:#8b949e;margin:0;}
+    code{font-family:'JetBrains Mono',monospace;background:#21262d;padding:0.2em 0.4em;border-radius:4px;}
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    {!! content !!}
+  </div>
+</body>
+</html>

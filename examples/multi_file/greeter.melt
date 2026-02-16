@@ -1,0 +1,9 @@
+class Greeter {
+    method init(name) {
+        this.name = name;
+    }
+    method greet() {
+        print "Hello, ";
+        print this.name;
+    }
+}

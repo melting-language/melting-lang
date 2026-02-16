@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>{{ title }}</title>
+  <link rel="stylesheet" href="/css/site.css">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet" crossorigin="anonymous">
+  <style>
+    .admin-wrap { min-height: 100vh; display: flex; flex-direction: column; }
+    .admin-body { display: flex; flex: 1; }
+    .admin-sidebar { width: 240px; flex-shrink: 0; background: #f8f9fa; border-right: 1px solid #dee2e6; }
+    .admin-sidebar .nav-link { color: #212529; padding: 0.5rem 1rem; border-radius: 0.25rem; margin: 0 0.25rem; }
+    .admin-sidebar .nav-link:hover { background: #e9ecef; }
+    .admin-sidebar .nav-link.active { background: #0d6efd; color: #fff; }
+    .admin-sidebar .nav-link.text-danger:hover { background: rgba(220,53,69,0.1); }
+    .admin-main { flex: 1; overflow: auto; padding: 1.5rem; }
+    .admin-topbar { padding: 0.5rem 1.5rem; background: #fff; border-bottom: 1px solid #dee2e6; }
+    @media (max-width: 767.98px) {
+      .admin-sidebar { width: 100%; border-right: 0; border-bottom: 1px solid #dee2e6; }
+      .admin-body { flex-direction: column; }
+    }
+  </style>
+</head>
+<body class="bg-light">
+  <div class="admin-wrap">
+    <div class="admin-topbar">
+      <a href="/" class="text-decoration-none text-dark fw-semibold">Melt</a>
+      <span class="text-muted mx-2">·</span>
+      <span class="text-muted small">Admin</span>
+    </div>
+    <div class="admin-body">
+      <aside class="admin-sidebar py-3">
+        <nav class="nav flex-column">
+          <a href="/admin" class="nav-link {{ activeDashboard }}">Dashboard</a>
+          <a href="/admin/categories" class="nav-link {{ activeCategories }}">Categories</a>
+          <hr class="my-2 mx-2">
+          <a href="/admin/logout" class="nav-link text-danger">Log out</a>
+        </nav>
+      </aside>
+      <main class="admin-main bg-white">
+        {!! content !!}
+      </main>
+    </div>
+  </div>
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js" crossorigin="anonymous"></script>
+</body>
+</html>

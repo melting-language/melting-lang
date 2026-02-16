@@ -1,0 +1,17 @@
+class Point {
+    method init(x, y) {
+        this.x = x;
+        this.y = y;
+    }
+    method show() {
+        print "Point(";
+        print this.x;
+        print ", ";
+        print this.y;
+        print ")";
+    }
+    method add(other) {
+        this.x = this.x + other.x;
+        this.y = this.y + other.y;
+    }
+}

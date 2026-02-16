@@ -1,0 +1,13 @@
+// Official Melt Language website — app config.
+// Import from main.melt and views/layout.melt; use global `app`.
+
+class AppConfig {
+    method init() {
+        this.name = "Melt Language";
+        this.port = 4000;
+        this.tagline = "A minimal interpreted, object-oriented programming language built in C++.";
+        this.debug = 0;
+    }
+}
+
+let app = AppConfig();

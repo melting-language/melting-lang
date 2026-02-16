@@ -1,0 +1,6 @@
+// Run database seeders (sample data). Requires migrations run first; Melt built with MySQL.
+// From project root: ./bin/melt examples/official_website_using_melt/run_seeders.melt
+
+import "database/seeders/001_seed_blog_posts.melt";
+
+print "All seeders completed.";

@@ -1,0 +1,11 @@
+import "../views/layout.melt";
+
+class NotFoundController {
+    method show(path) {
+        let view = View();
+        view.renderNotFound(path);
+        setResponseBody(view.output);
+        setResponseStatus(404);
+        return;
+    }
+}

@@ -1,0 +1,14 @@
+{!! successAlertHtml !!}
+<div class="mb-3">
+  <h1 class="h4 mb-1">Dashboard</h1>
+  <p class="text-muted small mb-0">Manage the site. You are logged in.</p>
+</div>
+<div class="card shadow-sm">
+  <div class="card-header bg-white py-2 d-flex justify-content-between align-items-center flex-wrap gap-2">
+    <h2 class="h6 mb-0">Blog posts</h2>
+    <a href="/blog/new" class="btn btn-sm btn-primary">New post</a>
+  </div>
+  <div class="card-body p-0">
+    {!! postsTableHtml !!}
+  </div>
+</div>

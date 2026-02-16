@@ -1,0 +1,9 @@
+Add this SSH key to GitHub so "git push" works:
+
+  https://github.com/settings/ssh/new
+
+Paste this into the "Key" field (title can be e.g. "melting-lang"):
+
+ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIJwrWO0Fy0SNKpRup0xmnnLMucDqqswnopAoDgkS3noO melting-lang
+
+Then run: git push origin main

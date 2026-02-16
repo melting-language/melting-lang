@@ -1,0 +1,15 @@
+// objectCreate() and dynamic obj[key] / obj[key] = value for JSON-style object construction
+let o = objectCreate();
+o.jsonrpc = "2.0";
+o.id = 1;
+o.result = "hello";
+print jsonEncode(o);
+
+let key = "name";
+o[key] = "Melt";
+print jsonEncode(o);
+print o[key];
+
+let req = jsonDecode("{\"id\":2,\"method\":\"ping\"}");
+print req.id;
+print req["method"];
