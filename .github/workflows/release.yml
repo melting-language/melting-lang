@@ -25,7 +25,7 @@ jobs:
     steps:
       - name: Checkout repository (no submodules)
         env:
-          GH_TOKEN: ${{ secrets.TOKEN }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           git init
           git remote add origin "https://x-access-token:${GH_TOKEN}@github.com/${{ github.repository }}.git"
@@ -77,4 +77,4 @@ jobs:
           files: bin/*
           fail_on_unmatched_files: true
         env:
-          GITHUB_TOKEN: ${{ secrets.TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
