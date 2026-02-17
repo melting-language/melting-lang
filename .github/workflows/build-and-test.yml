@@ -27,7 +27,7 @@ jobs:
       # are missing (e.g. "not our ref" after history rewrite in submodule repo).
       - name: Checkout repository
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.TOKEN }}
         run: |
           git clone --no-recurse-submodules "https://x-access-token:${GH_TOKEN}@github.com/${{ github.repository }}.git" .
           git fetch origin "${{ github.sha }}"
