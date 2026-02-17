@@ -35,6 +35,44 @@ You can also use literal `[a, b, c]`, `arr[i]`, and `arr[i] = value` in syntax.
 
 ---
 
+## Vectors (math)
+
+2D and 3D math vectors: a dedicated type (not arrays). Create with `vectorCreate2(x, y)` or `vectorCreate3(x, y, z)`; use built-ins for operations. `vectorCross` is for 3D only. Components are numbers; missing arguments default to 0.
+
+| Function | Description |
+|----------|-------------|
+| `vectorCreate2(x, y)` | Returns a 2D vector (x, y). |
+| `vectorCreate3(x, y, z)` | Returns a 3D vector (x, y, z). |
+| `vectorAdd(a, b)` | Returns a + b (same dimension). |
+| `vectorSub(a, b)` | Returns a − b (same dimension). |
+| `vectorScale(v, s)` | Returns v scaled by number s. |
+| `vectorLength(v)` | Returns the length (magnitude) of v. |
+| `vectorDot(a, b)` | Returns the dot product (same dimension). |
+| `vectorCross(a, b)` | Returns the cross product (3D only). |
+| `vectorX(v)` `vectorY(v)` `vectorZ(v)` | Returns the x, y, or z component (z is 0 for 2D). |
+| `vectorDim(v)` | Returns 2 or 3. |
+
+Example: `examples/vector_demo.melt`. Vectors print as `(x, y)` or `(x, y, z)`; `jsonEncode(vector)` yields `[x, y]` or `[x, y, z]`.
+
+---
+
+## GUI render (image buffer)
+
+Draw into an RGB image buffer and save as a PPM file (open in a viewer or convert to PNG with ImageMagick: `convert out.ppm out.png`). One image per interpreter; path is resolved relative to the script directory.
+
+| Function | Description |
+|----------|-------------|
+| `imageCreate(width, height)` | Creates an image (1–8192). Clears any previous image. |
+| `imageFill(r, g, b)` | Fills the image with RGB (0–255). Or `imageFill(gray)` for grayscale. |
+| `imageSetPixel(x, y, r, g, b)` | Sets one pixel. Or `imageSetPixel(x, y, gray)`. |
+| `imageDrawLine(x1, y1, x2, y2, r, g, b)` | Draws a line (Bresenham). r,g,b optional (default white). |
+| `imageSavePpm(path)` | Saves the image as PPM P6. Path relative to script dir. Returns truthy on success. |
+| `imagePreview()` | Opens a window showing the current image (blocks until window is closed). **Requires** Melt built with `make with-gui` (SDL2). Without it, throws an error. Close with window button or Escape/Q. |
+
+Example: `examples/gui_render_demo.melt`. To use the preview window: `make with-gui` (install SDL2 first: Linux `libsdl2-dev`, macOS `brew install sdl2`).
+
+---
+
 ## Strings
 
 | Function | Description |

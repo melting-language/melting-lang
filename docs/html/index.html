@@ -264,6 +264,10 @@ obj.getX();  // returns 1</code></pre>
           <tr><td><code>arraySet(arr, i, value)</code></td><td>Set element.</td></tr>
           <tr><td><code>arrayLength(arr)</code></td><td>Number of elements.</td></tr>
         </table>
+        <h3>Vectors (math)</h3>
+        <p>2D/3D vectors: <code>vectorCreate2(x, y)</code>, <code>vectorCreate3(x, y, z)</code>, <code>vectorAdd</code>, <code>vectorSub</code>, <code>vectorScale</code>, <code>vectorLength</code>, <code>vectorDot</code>, <code>vectorCross</code> (3D), <code>vectorX</code>/<code>vectorY</code>/<code>vectorZ</code>, <code>vectorDim</code>.</p>
+        <h3>GUI render (image buffer)</h3>
+        <p><code>imageCreate(w, h)</code>, <code>imageFill(r, g, b)</code>, <code>imageSetPixel(x, y, r, g, b)</code>, <code>imageDrawLine(...)</code>, <code>imageSavePpm(path)</code>, <code>imagePreview()</code> (window; requires <code>make with-gui</code> and SDL2).</p>
         <h3>Strings</h3>
         <table>
           <tr><th>Function</th><th>Description</th></tr>

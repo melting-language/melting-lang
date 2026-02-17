@@ -13,6 +13,7 @@ Documentation for the **Melt** programming language: a minimal, interpreted, obj
 | [Built-in Functions](03_BUILTINS.md) | All built-ins: I/O, arrays, JSON, HTTP, MySQL, encryption, views |
 | [HTTP Server & MVC Framework](04_HTTP_AND_MVC.md) | Backend server, web_project_mvc and official website (official_website_using_melt): config, routes, controllers, views, blog, migrations |
 | [Examples](05_EXAMPLES.md) | Index of example programs and how to run them |
+| [Development: Adding syntax](06_DEVELOPMENT_ADDING_SYNTAX.md) | Step-by-step guide to implement a new syntax feature (lexer → AST → parser → interpreter) |
 
 ## Quick reference
 

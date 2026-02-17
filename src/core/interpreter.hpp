@@ -1,6 +1,7 @@
 #pragma once
 
 #include "ast.hpp"
+#include <cstdint>
 #include <functional>
 #include <memory>
 #include <unordered_map>
@@ -31,13 +32,21 @@ struct NativeFunc {
 };
 
 struct MeltArray;  // forward
+struct MeltVec;   // forward
 
 using Value = std::variant<std::monostate, double, std::string, bool,
     std::shared_ptr<MeltClass>, std::shared_ptr<MeltObject>, std::shared_ptr<MeltArray>,
+    std::shared_ptr<MeltVec>,
     BoundMethod, NativeFunc>;
 
 struct MeltArray {
     std::vector<Value> data;
+};
+
+// Math vector: dim 2 (x,y) or 3 (x,y,z). z is 0 when dim==2.
+struct MeltVec {
+    double x = 0, y = 0, z = 0;
+    int dim = 2;  // 2 or 3
 };
 
 struct MeltObject {
@@ -120,9 +129,15 @@ private:
     std::string mcpResponse_;
     std::string mcpHandlerClassName_;
 
+    // GUI render: image buffer (RGB, row-major)
+    int imageWidth_ = 0;
+    int imageHeight_ = 0;
+    std::vector<uint8_t> imageData_;
+
     std::string resolvePath(const std::string& path);
     std::string readFile(const std::string& path);
     std::string renderViewTemplate(const std::string& path, std::shared_ptr<MeltObject> obj);
+    bool saveImagePpm(const std::string& path) const;
 
     void execute(Stmt& stmt);
     Value evaluate(const Expr& expr);

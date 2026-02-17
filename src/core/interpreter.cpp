@@ -3,11 +3,13 @@
 #include "parser.hpp"
 #include "http_server.hpp"
 #include "mysql_builtin.hpp"
+#include "gui_window.hpp"
 #include <iostream>
 #include <fstream>
 #include <sstream>
 #include <stdexcept>
 #include <cctype>
+#include <cmath>
 #include <cstdint>
 
 struct ReturnException : std::exception {
@@ -92,6 +94,7 @@ static std::string valueToViewString(const Value& v) {
     if (std::holds_alternative<bool>(v)) return std::get<bool>(v) ? "true" : "false";
     if (std::holds_alternative<std::shared_ptr<MeltObject>>(v)) return "[object]";
     if (std::holds_alternative<std::shared_ptr<MeltArray>>(v)) return "[array]";
+    if (std::holds_alternative<std::shared_ptr<MeltVec>>(v)) return "[vector]";
     return "";
 }
 
@@ -141,6 +144,12 @@ static std::string valueToJson(const Value& v) {
             out += "\"" + jsonEscape(kv.first) + "\":" + valueToJson(kv.second);
         }
         return out + "}";
+    }
+    if (std::holds_alternative<std::shared_ptr<MeltVec>>(v)) {
+        auto& vec = *std::get<std::shared_ptr<MeltVec>>(v);
+        if (vec.dim == 2)
+            return "[" + std::to_string(vec.x) + "," + std::to_string(vec.y) + "]";
+        return "[" + std::to_string(vec.x) + "," + std::to_string(vec.y) + "," + std::to_string(vec.z) + "]";
     }
     return "null";
 }
@@ -311,6 +320,33 @@ std::string Interpreter::renderViewTemplate(const std::string& path, std::shared
             content.replace(pos, rawPlace.size(), val);
     }
     return content;
+}
+
+static void imageDrawLineBresenham(std::vector<uint8_t>& data, int w, int h, int x1, int y1, int x2, int y2, uint8_t r, uint8_t g, uint8_t b) {
+    if (w <= 0 || h <= 0 || data.size() != (size_t)(w * h * 3)) return;
+    int dx = std::abs(x2 - x1), sx = (x1 < x2) ? 1 : -1;
+    int dy = -std::abs(y2 - y1), sy = (y1 < y2) ? 1 : -1;
+    int err = dx + dy;
+    for (;;) {
+        if (x1 >= 0 && x1 < w && y1 >= 0 && y1 < h) {
+            size_t i = (y1 * w + x1) * 3;
+            data[i] = r; data[i + 1] = g; data[i + 2] = b;
+        }
+        if (x1 == x2 && y1 == y2) break;
+        int e2 = 2 * err;
+        if (e2 >= dy) { err += dy; x1 += sx; }
+        if (e2 <= dx) { err += dx; y1 += sy; }
+    }
+}
+
+bool Interpreter::saveImagePpm(const std::string& path) const {
+    if (imageWidth_ <= 0 || imageHeight_ <= 0 || imageData_.size() != (size_t)(imageWidth_ * imageHeight_ * 3))
+        return false;
+    std::ofstream f(path, std::ios::binary);
+    if (!f) return false;
+    f << "P6\n" << imageWidth_ << " " << imageHeight_ << "\n255\n";
+    f.write(reinterpret_cast<const char*>(imageData_.data()), imageData_.size());
+    return !!f;
 }
 
 void Interpreter::interpret(const std::vector<std::unique_ptr<Stmt>>& statements,
@@ -677,6 +713,196 @@ void Interpreter::registerBuiltins() {
         obj->klass = i->getJsonObjectClass();
         return obj;
     });
+    // Vector math (2D and 3D)
+    auto vecFromValue = [](const Value& v) -> std::shared_ptr<MeltVec> {
+        auto* p = std::get_if<std::shared_ptr<MeltVec>>(&v);
+        if (!p || !*p) throw std::runtime_error("Expected vector");
+        return *p;
+    };
+    variables_["vectorCreate2"] = reg([](Interpreter* i, std::vector<Value> args) -> Value {
+        (void)i;
+        auto v = std::make_shared<MeltVec>();
+        v->dim = 2;
+        v->x = (args.size() > 0 && std::holds_alternative<double>(args[0])) ? std::get<double>(args[0]) : 0;
+        v->y = (args.size() > 1 && std::holds_alternative<double>(args[1])) ? std::get<double>(args[1]) : 0;
+        return v;
+    });
+    variables_["vectorCreate3"] = reg([](Interpreter* i, std::vector<Value> args) -> Value {
+        (void)i;
+        auto v = std::make_shared<MeltVec>();
+        v->dim = 3;
+        v->x = (args.size() > 0 && std::holds_alternative<double>(args[0])) ? std::get<double>(args[0]) : 0;
+        v->y = (args.size() > 1 && std::holds_alternative<double>(args[1])) ? std::get<double>(args[1]) : 0;
+        v->z = (args.size() > 2 && std::holds_alternative<double>(args[2])) ? std::get<double>(args[2]) : 0;
+        return v;
+    });
+    variables_["vectorAdd"] = reg([vecFromValue](Interpreter* i, std::vector<Value> args) -> Value {
+        (void)i;
+        if (args.size() < 2) throw std::runtime_error("vectorAdd requires two vectors");
+        auto a = vecFromValue(args[0]);
+        auto b = vecFromValue(args[1]);
+        if (a->dim != b->dim) throw std::runtime_error("vectorAdd: vectors must have same dimension");
+        auto r = std::make_shared<MeltVec>();
+        r->dim = a->dim;
+        r->x = a->x + b->x;
+        r->y = a->y + b->y;
+        r->z = a->z + b->z;
+        return r;
+    });
+    variables_["vectorSub"] = reg([vecFromValue](Interpreter* i, std::vector<Value> args) -> Value {
+        (void)i;
+        if (args.size() < 2) throw std::runtime_error("vectorSub requires two vectors");
+        auto a = vecFromValue(args[0]);
+        auto b = vecFromValue(args[1]);
+        if (a->dim != b->dim) throw std::runtime_error("vectorSub: vectors must have same dimension");
+        auto r = std::make_shared<MeltVec>();
+        r->dim = a->dim;
+        r->x = a->x - b->x;
+        r->y = a->y - b->y;
+        r->z = a->z - b->z;
+        return r;
+    });
+    variables_["vectorScale"] = reg([vecFromValue](Interpreter* i, std::vector<Value> args) -> Value {
+        (void)i;
+        if (args.size() < 2) throw std::runtime_error("vectorScale requires vector and number");
+        auto v = vecFromValue(args[0]);
+        double s = (std::holds_alternative<double>(args[1])) ? std::get<double>(args[1]) : 0;
+        auto r = std::make_shared<MeltVec>();
+        r->dim = v->dim;
+        r->x = v->x * s;
+        r->y = v->y * s;
+        r->z = v->z * s;
+        return r;
+    });
+    variables_["vectorLength"] = reg([vecFromValue](Interpreter* i, std::vector<Value> args) -> Value {
+        (void)i;
+        if (args.empty()) throw std::runtime_error("vectorLength requires a vector");
+        auto v = vecFromValue(args[0]);
+        double len = std::sqrt(v->x * v->x + v->y * v->y + v->z * v->z);
+        return len;
+    });
+    variables_["vectorDot"] = reg([vecFromValue](Interpreter* i, std::vector<Value> args) -> Value {
+        (void)i;
+        if (args.size() < 2) throw std::runtime_error("vectorDot requires two vectors");
+        auto a = vecFromValue(args[0]);
+        auto b = vecFromValue(args[1]);
+        if (a->dim != b->dim) throw std::runtime_error("vectorDot: vectors must have same dimension");
+        return a->x * b->x + a->y * b->y + a->z * b->z;
+    });
+    variables_["vectorCross"] = reg([vecFromValue](Interpreter* i, std::vector<Value> args) -> Value {
+        (void)i;
+        if (args.size() < 2) throw std::runtime_error("vectorCross requires two 3D vectors");
+        auto a = vecFromValue(args[0]);
+        auto b = vecFromValue(args[1]);
+        if (a->dim != 3 || b->dim != 3) throw std::runtime_error("vectorCross requires 3D vectors");
+        auto r = std::make_shared<MeltVec>();
+        r->dim = 3;
+        r->x = a->y * b->z - a->z * b->y;
+        r->y = a->z * b->x - a->x * b->z;
+        r->z = a->x * b->y - a->y * b->x;
+        return r;
+    });
+    variables_["vectorX"] = reg([vecFromValue](Interpreter* i, std::vector<Value> args) -> Value {
+        (void)i;
+        if (args.empty()) throw std::runtime_error("vectorX requires a vector");
+        return vecFromValue(args[0])->x;
+    });
+    variables_["vectorY"] = reg([vecFromValue](Interpreter* i, std::vector<Value> args) -> Value {
+        (void)i;
+        if (args.empty()) throw std::runtime_error("vectorY requires a vector");
+        return vecFromValue(args[0])->y;
+    });
+    variables_["vectorZ"] = reg([vecFromValue](Interpreter* i, std::vector<Value> args) -> Value {
+        (void)i;
+        if (args.empty()) throw std::runtime_error("vectorZ requires a vector");
+        return vecFromValue(args[0])->z;
+    });
+    variables_["vectorDim"] = reg([vecFromValue](Interpreter* i, std::vector<Value> args) -> Value {
+        (void)i;
+        if (args.empty()) throw std::runtime_error("vectorDim requires a vector");
+        return (double)vecFromValue(args[0])->dim;
+    });
+    // GUI render: image buffer (RGB 0-255), then save as PPM
+    variables_["imageCreate"] = reg([](Interpreter* i, std::vector<Value> args) -> Value {
+        int w = args.size() > 0 && std::holds_alternative<double>(args[0]) ? (int)std::get<double>(args[0]) : 0;
+        int h = args.size() > 1 && std::holds_alternative<double>(args[1]) ? (int)std::get<double>(args[1]) : 0;
+        if (w <= 0 || h <= 0 || w > 8192 || h > 8192) throw std::runtime_error("imageCreate: width and height must be 1..8192");
+        i->imageWidth_ = w;
+        i->imageHeight_ = h;
+        i->imageData_.assign((size_t)(w * h * 3), 0);
+        return true;
+    });
+    variables_["imageFill"] = reg([](Interpreter* i, std::vector<Value> args) -> Value {
+        if (i->imageData_.empty()) throw std::runtime_error("No image; call imageCreate first");
+        int r = 0, g = 0, b = 0;
+        if (args.size() >= 3 && std::holds_alternative<double>(args[0]) && std::holds_alternative<double>(args[1]) && std::holds_alternative<double>(args[2])) {
+            r = (int)std::get<double>(args[0]) & 255;
+            g = (int)std::get<double>(args[1]) & 255;
+            b = (int)std::get<double>(args[2]) & 255;
+        } else if (args.size() >= 1 && std::holds_alternative<double>(args[0])) {
+            r = g = b = (int)std::get<double>(args[0]) & 255;
+        }
+        for (size_t j = 0; j < i->imageData_.size(); j += 3) {
+            i->imageData_[j] = (uint8_t)r;
+            i->imageData_[j + 1] = (uint8_t)g;
+            i->imageData_[j + 2] = (uint8_t)b;
+        }
+        return true;
+    });
+    variables_["imageSetPixel"] = reg([](Interpreter* i, std::vector<Value> args) -> Value {
+        if (i->imageData_.empty()) throw std::runtime_error("No image; call imageCreate first");
+        if (args.size() < 2) return false;
+        int x = (int)std::get<double>(args[0]);
+        int y = (int)std::get<double>(args[1]);
+        int r = 255, g = 255, b = 255;
+        if (args.size() >= 5) {
+            r = (int)std::get<double>(args[2]) & 255;
+            g = (int)std::get<double>(args[3]) & 255;
+            b = (int)std::get<double>(args[4]) & 255;
+        } else if (args.size() >= 3 && std::holds_alternative<double>(args[2])) {
+            r = g = b = (int)std::get<double>(args[2]) & 255;
+        }
+        if (x >= 0 && x < i->imageWidth_ && y >= 0 && y < i->imageHeight_) {
+            size_t idx = (size_t)(y * i->imageWidth_ + x) * 3;
+            i->imageData_[idx] = (uint8_t)r;
+            i->imageData_[idx + 1] = (uint8_t)g;
+            i->imageData_[idx + 2] = (uint8_t)b;
+        }
+        return true;
+    });
+    variables_["imageDrawLine"] = reg([](Interpreter* i, std::vector<Value> args) -> Value {
+        if (i->imageData_.empty()) throw std::runtime_error("No image; call imageCreate first");
+        if (args.size() < 4) throw std::runtime_error("imageDrawLine requires x1, y1, x2, y2");
+        int x1 = (int)std::get<double>(args[0]);
+        int y1 = (int)std::get<double>(args[1]);
+        int x2 = (int)std::get<double>(args[2]);
+        int y2 = (int)std::get<double>(args[3]);
+        int r = args.size() > 4 ? ((int)std::get<double>(args[4]) & 255) : 255;
+        int g = args.size() > 5 ? ((int)std::get<double>(args[5]) & 255) : 255;
+        int b = args.size() > 6 ? ((int)std::get<double>(args[6]) & 255) : 255;
+        imageDrawLineBresenham(i->imageData_, i->imageWidth_, i->imageHeight_, x1, y1, x2, y2, (uint8_t)r, (uint8_t)g, (uint8_t)b);
+        return true;
+    });
+    variables_["imageSavePpm"] = reg([](Interpreter* i, std::vector<Value> args) -> Value {
+        if (args.empty() || !std::holds_alternative<std::string>(args[0])) return false;
+        std::string path = std::get<std::string>(args[0]);
+        std::string full = i->getResolvedPath(path);
+        return i->saveImagePpm(full);
+    });
+#ifdef USE_GUI
+    variables_["imagePreview"] = reg([](Interpreter* i, std::vector<Value> args) -> Value {
+        (void)args;
+        if (i->imageData_.empty()) throw std::runtime_error("No image; call imageCreate first");
+        runImagePreviewWindow(i->imageWidth_, i->imageHeight_, i->imageData_.data());
+        return false;
+    });
+#else
+    variables_["imagePreview"] = reg([](Interpreter* i, std::vector<Value> args) -> Value {
+        (void)i;
+        (void)args;
+        throw std::runtime_error("Melt was not built with GUI support. Use: make with-gui (requires SDL2)");
+    });
+#endif
     variables_["base64Encode"] = reg([](Interpreter* i, std::vector<Value> args) -> Value {
         (void)i;
         if (args.empty() || !std::holds_alternative<std::string>(args[0])) return std::string("");
@@ -1073,6 +1299,7 @@ bool Interpreter::isTruthy(const Value& v) {
     if (std::holds_alternative<double>(v)) return std::get<double>(v) != 0;
     if (std::holds_alternative<std::string>(v)) return !std::get<std::string>(v).empty();
     if (std::holds_alternative<std::shared_ptr<MeltArray>>(v)) return !std::get<std::shared_ptr<MeltArray>>(v)->data.empty();
+    if (std::holds_alternative<std::shared_ptr<MeltVec>>(v)) return true;
     return false;
 }
 
@@ -1104,5 +1331,11 @@ void Interpreter::printValue(const Value& v) {
             printValue(a.data[i]);
         }
         std::cout << "]";
+    } else if (std::holds_alternative<std::shared_ptr<MeltVec>>(v)) {
+        auto& vec = *std::get<std::shared_ptr<MeltVec>>(v);
+        if (vec.dim == 2)
+            std::cout << "(" << vec.x << ", " << vec.y << ")";
+        else
+            std::cout << "(" << vec.x << ", " << vec.y << ", " << vec.z << ")";
     }
 }
