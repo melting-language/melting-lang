@@ -1,0 +1,465 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Melt Language — Documentation</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #0f172a;
+      --bg-card: #1e293b;
+      --bg-code: #0f172a;
+      --border: #334155;
+      --text: #e2e8f0;
+      --text-muted: #94a3b8;
+      --accent: #38bdf8;
+      --accent-dim: #0ea5e9;
+      --green: #34d399;
+    }
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      margin: 0;
+      font-family: 'DM Sans', system-ui, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.65;
+      font-size: 15px;
+    }
+    .layout {
+      display: flex;
+      min-height: 100vh;
+    }
+    .sidebar {
+      width: 260px;
+      flex-shrink: 0;
+      background: var(--bg-card);
+      border-right: 1px solid var(--border);
+      padding: 1.5rem 0;
+      position: sticky;
+      top: 0;
+      height: 100vh;
+      overflow-y: auto;
+    }
+    .sidebar h2 {
+      font-size: 0.75rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--text-muted);
+      margin: 0 1.25rem 0.75rem;
+    }
+    .sidebar nav a {
+      display: block;
+      padding: 0.5rem 1.25rem;
+      color: var(--text-muted);
+      text-decoration: none;
+      font-size: 0.9rem;
+      border-left: 3px solid transparent;
+      margin-left: 0;
+    }
+    .sidebar nav a:hover { color: var(--accent); }
+    .sidebar nav a.active { color: var(--accent); border-left-color: var(--accent); }
+    .main {
+      flex: 1;
+      max-width: 780px;
+      padding: 2.5rem 2rem 4rem;
+    }
+    h1 {
+      font-size: 2rem;
+      font-weight: 700;
+      margin: 0 0 0.5rem;
+      letter-spacing: -0.02em;
+    }
+    .tagline { color: var(--text-muted); margin-bottom: 2.5rem; font-size: 1.05rem; }
+    section {
+      margin-bottom: 3rem;
+    }
+    section > h2 {
+      font-size: 1.35rem;
+      font-weight: 600;
+      margin: 0 0 1rem;
+      padding-bottom: 0.5rem;
+      border-bottom: 1px solid var(--border);
+      color: var(--text);
+    }
+    section > h3 { font-size: 1.1rem; margin: 1.5rem 0 0.5rem; color: var(--accent); }
+    section > h4 { font-size: 1rem; margin: 1rem 0 0.5rem; color: var(--text-muted); }
+    p { margin: 0 0 0.75rem; }
+    ul, ol { margin: 0 0 1rem; padding-left: 1.5rem; }
+    li { margin-bottom: 0.35rem; }
+    code {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.88em;
+      background: var(--bg-code);
+      padding: 0.15em 0.4em;
+      border-radius: 4px;
+      color: var(--green);
+      border: 1px solid var(--border);
+    }
+    pre {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.85rem;
+      background: var(--bg-code);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 1rem 1.25rem;
+      overflow-x: auto;
+      margin: 0 0 1rem;
+      line-height: 1.5;
+    }
+    pre code { background: none; padding: 0; border: none; color: var(--text); }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 0 0 1rem;
+      font-size: 0.9rem;
+    }
+    th, td {
+      text-align: left;
+      padding: 0.6rem 0.75rem;
+      border: 1px solid var(--border);
+    }
+    th { background: var(--bg-card); color: var(--text-muted); font-weight: 600; }
+    tr:hover td { background: rgba(56, 189, 248, 0.06); }
+    strong { color: var(--text); }
+    hr { border: none; border-top: 1px solid var(--border); margin: 2rem 0; }
+    .quick-ref {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 1rem 1.25rem;
+      margin-bottom: 1.5rem;
+    }
+    .quick-ref h3 { margin-top: 0; }
+    @media (max-width: 900px) {
+      .layout { flex-direction: column; }
+      .sidebar { width: 100%; height: auto; position: relative; padding: 1rem; border-right: none; border-bottom: 1px solid var(--border); }
+      .sidebar nav { display: flex; flex-wrap: wrap; gap: 0.25rem; }
+      .sidebar nav a { border-left: none; border-bottom: 2px solid transparent; }
+      .sidebar nav a.active { border-bottom-color: var(--accent); }
+    }
+  </style>
+</head>
+<body>
+  <div class="layout">
+    <aside class="sidebar">
+      <h2>Documentation</h2>
+      <nav>
+        <a href="#overview">Overview</a>
+        <a href="#getting-started">Getting Started</a>
+        <a href="#language-reference">Language Reference</a>
+        <a href="#builtins">Built-in Functions</a>
+        <a href="#http-mvc">HTTP Server & MVC</a>
+        <a href="#official-website">Official Website</a>
+        <a href="#examples">Examples</a>
+      </nav>
+    </aside>
+    <main class="main">
+      <h1>Melt</h1>
+      <p class="tagline">A minimal interpreted, object-oriented programming language built in C++.</p>
+
+      <section id="overview">
+        <h2>Overview</h2>
+        <p>Melt supports variables, arithmetic, strings, arrays, control flow (<code>if</code>/<code>else</code>, <code>while</code>), <code>try</code>/<code>catch</code>/<code>throw</code>, classes and methods, <code>return</code>, and <code>import</code>. It includes built-ins for file I/O, JSON, HTTP server, optional MySQL, encoding (Base64, XOR), and Blade-like HTML templates. The <code>examples/web_project_mvc/</code> project shows a full MVC-style web app; <code>examples/official_website_using_melt/</code> is the full official Melt website with Home, Documentation, About, Resource, Support, and a dynamic Blog.</p>
+        <div class="quick-ref">
+          <h3>Quick reference</h3>
+          <ul>
+            <li><strong>Run:</strong> <code>./bin/melt script.melt</code></li>
+            <li><strong>Build:</strong> <code>make</code> → <code>bin/melt</code></li>
+            <li><strong>With MySQL:</strong> <code>make with-mysql</code></li>
+            <li><strong>Install:</strong> <code>make install</code></li>
+            <li><strong>Extension:</strong> <code>.melt</code></li>
+          </ul>
+        </div>
+      </section>
+
+      <section id="getting-started">
+        <h2>Getting Started</h2>
+        <h3>Build</h3>
+        <p>From the project root:</p>
+        <pre><code>make</code></pre>
+        <p>This produces <strong>bin/melt</strong>. For MySQL support:</p>
+        <pre><code>make with-mysql</code></pre>
+        <h3>Install (optional)</h3>
+        <pre><code>make install
+make install PREFIX=$(HOME)/.local   # user-only</code></pre>
+        <h3>Run a program</h3>
+        <pre><code>./bin/melt path/to/script.melt
+./bin/melt examples/hello.melt</code></pre>
+        <h3>First program</h3>
+        <pre><code>let name = "Melt";
+print "Hello, ";
+print name;</code></pre>
+        <p>Paths: <code>import</code> paths are relative to the file containing the import. <code>readFile(path)</code> and similar resolve relative paths from the entry script’s directory. Run from the project root when using examples or the MVC app.</p>
+      </section>
+
+      <section id="language-reference">
+        <h2>Language Reference</h2>
+        <h3>Comments</h3>
+        <p><code>//</code> line comment. <code>/* ... */</code> block comment.</p>
+        <h3>Statements &amp; blocks</h3>
+        <p>Statements end with <code>;</code>. Blocks use <code>{</code> <code>}</code>.</p>
+        <h3>Variables</h3>
+        <p><code>let name = value;</code> to declare. <code>name = value;</code> to reassign.</p>
+        <h3>Types</h3>
+        <p>Number, string, boolean (<code>true</code>, <code>false</code>), array <code>[1,2,3]</code>, object (class instance). Strings are double-quoted; support <code>\n</code> <code>\"</code> etc.</p>
+        <h3>Operators</h3>
+        <p>Arithmetic: <code>+</code> <code>-</code> <code>*</code> <code>/</code> (plus string concatenation with <code>+</code>). Comparison: <code>==</code> <code>!=</code> <code>&lt;</code> <code>&lt;=</code> <code>&gt;</code> <code>&gt;=</code>. Logical: <code>&amp;&amp;</code> <code>||</code> <code>!</code> (short-circuit for <code>&amp;&amp;</code> and <code>||</code>). Assignment: <code>=</code> for variables, <code>obj.field = value</code>, <code>arr[i] = value</code>.</p>
+        <h3>Control flow</h3>
+        <pre><code>if (condition) { }
+if (condition) { } else { }
+while (condition) { }</code></pre>
+        <h3>Try / catch / throw</h3>
+        <pre><code>try {
+    // statements that may throw
+    throw "error message";
+} catch (err) {
+    // err holds the thrown value
+    print err;</code></pre>
+        <p><code>throw expr;</code> evaluates <code>expr</code> and throws it; execution jumps to the nearest <code>catch</code> block. The catch variable (e.g. <code>err</code>) receives the thrown value (any type: string, number, etc.). Both Melt’s <code>throw</code> and interpreter runtime errors (e.g. unknown variable, “Expected array for index”) are caught; the catch variable gets the error message string for runtime errors. Parser/syntax errors still abort before run. <code>return</code> inside try is not caught and propagates out.</p>
+        <h3>Print</h3>
+        <p><code>print expr;</code></p>
+        <h3>Classes &amp; objects</h3>
+        <pre><code>class Name {
+    method init(a, b) { this.x = a; this.y = b; }
+    method getX() { return this.x; }
+}
+let obj = Name(1, 2);
+obj.getX();  // returns 1</code></pre>
+        <p><code>init</code> is the constructor. <code>this</code> refers to the current object. <code>return expr;</code> or <code>return;</code> inside a method.</p>
+        <h3>Arrays</h3>
+        <p>Literal <code>[a, b, c]</code>. Index: <code>arr[i]</code>, <code>arr[i] = value</code>. Built-ins: <code>arrayCreate</code>, <code>arrayPush</code>, <code>arrayGet</code>, <code>arraySet</code>, <code>arrayLength</code>.</p>
+        <h3>Import</h3>
+        <pre><code>import "path.melt";</code></pre>
+        <p>Path is relative to the importing file’s directory. One execution per resolved path; globals (variables, classes) are shared.</p>
+        <h3>Truthiness</h3>
+        <p>Falsy: <code>false</code>, <code>0</code>, <code>""</code>, empty array, nothing. Everything else is truthy.</p>
+        <h3>Keywords &amp; literals</h3>
+        <p><code>let</code> <code>if</code> <code>else</code> <code>while</code> <code>print</code> <code>class</code> <code>method</code> <code>this</code> <code>import</code> <code>return</code> <code>try</code> <code>catch</code> <code>throw</code>. Booleans: <code>true</code> <code>false</code>. Do not use <code>method</code> as a variable name.</p>
+      </section>
+
+      <section id="builtins">
+        <h2>Built-in Functions</h2>
+        <h3>Output</h3>
+        <table>
+          <tr><th>Built-in</th><th>Description</th></tr>
+          <tr><td><code>print expr;</code></td><td>Prints value to stdout with newline.</td></tr>
+        </table>
+        <h3>File I/O</h3>
+        <table>
+          <tr><th>Function</th><th>Description</th></tr>
+          <tr><td><code>readFile(path)</code></td><td>Returns file contents as string, or <code>""</code> on error.</td></tr>
+          <tr><td><code>writeFile(path, content)</code></td><td>Writes string to file. Returns truthy/falsy.</td></tr>
+        </table>
+        <h3>Arrays</h3>
+        <table>
+          <tr><th>Function</th><th>Description</th></tr>
+          <tr><td><code>arrayCreate()</code></td><td>New empty array.</td></tr>
+          <tr><td><code>arrayPush(arr, value)</code></td><td>Append; returns length.</td></tr>
+          <tr><td><code>arrayGet(arr, i)</code></td><td>Element at index <code>i</code>.</td></tr>
+          <tr><td><code>arraySet(arr, i, value)</code></td><td>Set element.</td></tr>
+          <tr><td><code>arrayLength(arr)</code></td><td>Number of elements.</td></tr>
+        </table>
+        <h3>Strings</h3>
+        <table>
+          <tr><th>Function</th><th>Description</th></tr>
+          <tr><td><code>splitString(str, sep)</code></td><td>Split by separator; returns array.</td></tr>
+          <tr><td><code>replaceString(str, from, to)</code></td><td>Replace all occurrences.</td></tr>
+          <tr><td><code>escapeHtml(str)</code></td><td>Escape for HTML output.</td></tr>
+          <tr><td><code>urlDecode(str)</code></td><td>Decode %XX and + (e.g. form values).</td></tr>
+          <tr><td><code>chr(n)</code></td><td>One-character string with ASCII code n (0–255).</td></tr>
+        </table>
+        <h3>JSON</h3>
+        <table>
+          <tr><th>Function</th><th>Description</th></tr>
+          <tr><td><code>jsonEncode(value)</code></td><td>Value → JSON string.</td></tr>
+          <tr><td><code>jsonDecode(str)</code></td><td>JSON string → value; objects support <code>obj.field</code>.</td></tr>
+          <tr><td><code>objectCreate()</code></td><td>New empty object; use <code>obj.field = value</code> or <code>obj[key] = value</code> (string key), then <code>jsonEncode(obj)</code>.</td></tr>
+        </table>
+        <p><strong>Dynamic keys:</strong> <code>obj[key]</code> and <code>obj[key] = value</code> when <code>key</code> is a string (e.g. variable). Missing key returns falsy.</p>
+        <h3>Encoding / crypto</h3>
+        <table>
+          <tr><th>Function</th><th>Description</th></tr>
+          <tr><td><code>base64Encode(str)</code></td><td>Base64 encode.</td></tr>
+          <tr><td><code>base64Decode(str)</code></td><td>Base64 decode.</td></tr>
+          <tr><td><code>xorCipher(data, key)</code></td><td>XOR with key (encrypt/decrypt; obfuscation only).</td></tr>
+        </table>
+        <h3>Views (templates)</h3>
+        <table>
+          <tr><th>Function</th><th>Description</th></tr>
+          <tr><td><code>renderView(templatePath, data)</code></td><td>Loads HTML template; <code>{{ key }}</code> escaped, <code>{!! key !!}</code> raw. Returns rendered string.</td></tr>
+        </table>
+        <h3>HTTP server</h3>
+        <p><strong>Request:</strong> <code>getRequestPath()</code> <code>getRequestMethod()</code> <code>getRequestBody()</code></p>
+        <p><strong>Response:</strong> <code>setResponseBody(str)</code> <code>setResponseStatus(code)</code> <code>setResponseContentType(str)</code> <code>servePublic(path)</code></p>
+        <p><strong>Control:</strong> <code>setHandler("ClassName")</code> <code>listen(port)</code></p>
+        <p><code>servePublic(path)</code> serves from <code>public/js</code>, <code>public/css</code>, <code>public/images</code> when path matches.</p>
+        <h3>Stdio / MCP transport</h3>
+        <p>For stdio-based servers (e.g. MCP): one message per line on stdin, one response per line on stdout. <code>setMcpHandler("ClassName")</code> then <code>runMcp()</code>. Handler’s <code>handle()</code> uses <code>getMcpRequest()</code>, <code>jsonDecode</code>/<code>jsonEncode</code>, <code>setMcpResponse(str)</code>.</p>
+        <h4>Architecture</h4>
+        <p>The following diagram shows how the stdio transport works: the client sends one line per message on stdin; the <code>runMcp()</code> built-in sets the request, calls the Melt handler’s <code>handle()</code>, then writes the response line to stdout.</p>
+        <div class="mermaid" style="background: var(--bg-card); padding: 1rem; border-radius: 8px; margin: 1rem 0;">sequenceDiagram
+  participant Client
+  participant RunMcp as runMcp built-in
+  participant Handler as Melt handle
+  loop Per message
+    Client->>RunMcp: line (stdin)
+    RunMcp->>RunMcp: setMcpRequest(line)
+    RunMcp->>Handler: callMcpHandler
+    Handler->>Handler: getMcpRequest, jsonDecode, work, setMcpResponse
+    RunMcp->>RunMcp: getMcpResponse
+    RunMcp->>Client: response line (stdout)
+  end</div>
+        <table>
+          <tr><th>Function</th><th>Description</th></tr>
+          <tr><td><code>readStdinLine()</code></td><td>Read one line from stdin; <code>""</code> on EOF.</td></tr>
+          <tr><td><code>writeStdout(str)</code></td><td>Write string to stdout (no newline); flushes.</td></tr>
+          <tr><td><code>writeStderr(str)</code></td><td>Write string to stderr (no newline); for logging.</td></tr>
+          <tr><td><code>setMcpRequest(str)</code> <code>getMcpRequest()</code></td><td>Set/get current MCP request line.</td></tr>
+          <tr><td><code>setMcpResponse(str)</code> <code>getMcpResponse()</code></td><td>Set/get MCP response string.</td></tr>
+          <tr><td><code>setMcpHandler("ClassName")</code></td><td>Set MCP handler class (must have <code>handle()</code>).</td></tr>
+          <tr><td><code>runMcp()</code></td><td>Block: read line → call handler → write response line; exits when stdin closed.</td></tr>
+        </table>
+        <h3>MySQL (optional, <code>make with-mysql</code>)</h3>
+        <table>
+          <tr><th>Function</th><th>Description</th></tr>
+          <tr><td><code>mysqlConnect(host, user, password, database)</code></td><td>Connect. Returns truthy/falsy.</td></tr>
+          <tr><td><code>mysqlQuery(sql)</code></td><td>Execute SQL.</td></tr>
+          <tr><td><code>mysqlFetchRow()</code></td><td>Next row as string; columns separated by <code>chr(1)</code>. Split with <code>splitString(row, chr(1))</code>. Returns <code>""</code> when no more rows.</td></tr>
+          <tr><td><code>mysqlClose()</code></td><td>Close connection.</td></tr>
+        </table>
+      </section>
+
+      <section id="http-mvc">
+        <h2>HTTP Server &amp; MVC Framework</h2>
+        <h3>Minimal server</h3>
+        <pre><code>class App {
+    method handle() {
+        let path = getRequestPath();
+        if (path == "/") {
+            setResponseBody("&lt;h1&gt;Hello&lt;/h1&gt;");
+            setResponseStatus(200);
+        } else {
+            setResponseStatus(404);
+        }
+    }
+}
+setHandler("App");
+listen(8080);</code></pre>
+        <p>Run: <code>./bin/melt examples/server.melt</code> then open http://localhost:8080/</p>
+        <h3>MVC app (web_project_mvc)</h3>
+        <p>Run: <code>./bin/melt examples/web_project_mvc/main.melt</code></p>
+        <p><strong>Structure:</strong> <code>main.melt</code> → config + routes; <code>config/app.melt</code>, <code>config/database.melt</code>; <code>routes.melt</code> (servePublic then controller); <code>controllers/*.melt</code>; <code>models/</code>; <code>views/layout.melt</code> + <code>views/*.html</code> (Blade-like <code>{{ key }}</code>, <code>{!! key !!}</code>); <code>public/js</code>, <code>public/css</code>, <code>public/images</code>; <code>migrations/*.sql</code>; <code>run_migrations.melt</code>.</p>
+        <p><strong>Adding a route:</strong> Add branch in <code>routes.melt</code>, new controller file, render method in <code>views/layout.melt</code>, optional <code>views/name.html</code>.</p>
+        <p><strong>Migrations:</strong> <code>./bin/melt examples/web_project_mvc/run_migrations.melt</code>. Add <code>migrations/NNN_name.sql</code> and append filename to <code>migrationFiles</code> in the runner.</p>
+        <h3>Official website (official_website_using_melt)</h3>
+        <p>Full Melt website: Home, Documentation, About, Resource, Support, and a <strong>dynamic blog</strong> (MySQL).</p>
+        <p><strong>Run:</strong> <code>./bin/melt examples/official_website_using_melt/main.melt</code> then open <strong>http://localhost:4000</strong></p>
+        <p><strong>Structure:</strong> <code>main.melt</code> → config + routes; <code>config/app.melt</code> (port 4000), <code>config/database.melt</code>; <code>routes.melt</code> (servePublic then routes for /, /documentation, /about, /resource, /support, /blog, /blog/new, POST /blog, 404); <code>controllers/*.melt</code> (Home, Documentation, About, Resource, Support, Blog, NotFound); <code>database/models/blog.melt</code> (<code>BlogPost</code>); <code>database/migrations/*.sql</code>; <code>database/seeders/*.melt</code>; <code>views/layout.melt</code> + <code>views/*.html</code>; <code>public/css/site.css</code>; <code>run_migrations.melt</code>, <code>run_seeders.melt</code>.</p>
+        <p><strong>Menu:</strong> Home (/), Documentation (/documentation), About (/about), Resource (/resource), Support (/support), Blog (/blog), New post (/blog/new).</p>
+        <p><strong>Blog:</strong> All posts listed on /blog (drafts show “Draft” badge). Create at /blog/new; check “Publish” to show immediately. Edit <code>config/database.melt</code> for MySQL. Migrations: <code>./bin/melt examples/official_website_using_melt/run_migrations.melt</code> (requires <code>make with-mysql</code>).</p>
+      </section>
+
+      <section id="official-website">
+        <h2>Official Website (full reference)</h2>
+        <p>The <strong>official Melt website</strong> lives in <code>examples/official_website_using_melt/</code>. It is built with Melt using the same MVC pattern as <code>web_project_mvc</code> and includes a dynamic blog backed by MySQL.</p>
+        <h3>Run</h3>
+        <pre><code>./bin/melt examples/official_website_using_melt/main.melt</code></pre>
+        <p>Then open <strong>http://localhost:4000</strong>. Without MySQL, the site runs; the blog shows “No posts yet” and the New post form is available (creating a post requires MySQL).</p>
+        <h3>Project structure</h3>
+        <table>
+          <tr><th>Path</th><th>Role</th></tr>
+          <tr><td>main.melt</td><td>Entry; setHandler, Router().dispatch(path), listen(app.port)</td></tr>
+          <tr><td>config/app.melt</td><td>App name, port (4000), tagline</td></tr>
+          <tr><td>config/database.melt</td><td>MySQL: host, user, password, database</td></tr>
+          <tr><td>routes.melt</td><td>servePublic then /, /documentation, /about, /resource, /support, /blog, /blog/new, POST /blog, 404</td></tr>
+          <tr><td>controllers/*.melt</td><td>Home, Documentation, About, Resource, Support, Blog (index, newPost, createPost), NotFound</td></tr>
+          <tr><td>database/models/blog.melt</td><td>BlogPost (id, title, body, published, created_at)</td></tr>
+          <tr><td>views/layout.melt</td><td>View: renderHome, renderDocumentation, renderAbout, renderResource, renderSupport, renderBlog(posts), renderBlogNew, renderBlogCreated, renderNotFound</td></tr>
+          <tr><td>views/*.html</td><td>layout, home, documentation, about, resource, support, blog, blog_new, blog_created, 404</td></tr>
+          <tr><td>public/css/site.css</td><td>Styles</td></tr>
+          <tr><td>database/migrations/*.sql</td><td>blog_posts table</td></tr>
+          <tr><td>database/seeders/*.melt</td><td>Seed sample data</td></tr>
+          <tr><td>run_migrations.melt</td><td>Run database/migrations (with-mysql)</td></tr>
+          <tr><td>run_seeders.melt</td><td>Run database/seeders</td></tr>
+        </table>
+        <h3>Menu and routes</h3>
+        <table>
+          <tr><th>Menu</th><th>Path</th></tr>
+          <tr><td>Home</td><td>/</td></tr>
+          <tr><td>Documentation</td><td>/documentation</td></tr>
+          <tr><td>About</td><td>/about</td></tr>
+          <tr><td>Resource</td><td>/resource</td></tr>
+          <tr><td>Support</td><td>/support</td></tr>
+          <tr><td>Blog</td><td>/blog</td></tr>
+          <tr><td>New post</td><td>/blog/new</td></tr>
+        </table>
+        <h3>Blog and database</h3>
+        <p><strong>Table:</strong> <code>blog_posts</code> (id, title, body, published, created_at). All posts shown on /blog; drafts show a “Draft” badge.</p>
+        <p><strong>Migrations:</strong> <code>make with-mysql</code>, then <code>./bin/melt examples/official_website_using_melt/run_migrations.melt</code>. Edit <code>config/database.melt</code> for your MySQL.</p>
+        <p><strong>Create post:</strong> Open /blog/new, fill title and body, optionally check “Publish”, submit.</p>
+      </section>
+
+      <section id="examples">
+        <h2>Examples</h2>
+        <p>Run from project root: <code>./bin/melt examples/&lt;path&gt;.melt</code></p>
+        <table>
+          <tr><th>File</th><th>Description</th></tr>
+          <tr><td>hello.melt</td><td>Minimal print.</td></tr>
+          <tr><td>basics.melt</td><td>Variables, conditionals, loops.</td></tr>
+          <tr><td>oop.melt</td><td>Classes, methods, this.</td></tr>
+          <tr><td>counter.melt</td><td>Class with state.</td></tr>
+          <tr><td>return_demo.melt</td><td>Method return values.</td></tr>
+          <tr><td>try_catch_demo.melt</td><td>try/catch and throw.</td></tr>
+          <tr><td>try_catch_runtime_error.melt</td><td>Catching interpreter runtime errors.</td></tr>
+          <tr><td>logical_ops_demo.melt</td><td>Logical operators &amp;&amp;, ||, !.</td></tr>
+          <tr><td>comment_demo.melt</td><td>Comments.</td></tr>
+          <tr><td>multi_file/main.melt</td><td>Import and use other .melt files.</td></tr>
+          <tr><td>file_io.melt</td><td>readFile, writeFile.</td></tr>
+          <tr><td>array_demo.melt</td><td>Arrays and built-ins.</td></tr>
+          <tr><td>json_demo.melt</td><td>jsonEncode, jsonDecode.</td></tr>
+          <tr><td>encryption_demo.melt</td><td>Base64, xorCipher.</td></tr>
+          <tr><td>server.melt</td><td>HTTP server.</td></tr>
+          <tr><td>mysql_example.melt</td><td>MySQL (requires with-mysql).</td></tr>
+          <tr><td>web_project_mvc/main.melt</td><td>Full MVC app.</td></tr>
+          <tr><td>official_website_using_melt/main.melt</td><td>Official Melt website (MVC): Home, Documentation, About, Resource, Support, Blog. Port 4000.</td></tr>
+        </table>
+      </section>
+
+      <hr>
+      <p style="color: var(--text-muted); font-size: 0.9rem;">Melt — minimal OOP language. <a href="../README.md" style="color: var(--accent);">Back to docs index</a></p>
+    </main>
+  </div>
+  <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js" crossorigin="anonymous"></script>
+  <script>
+    mermaid.initialize({ startOnLoad: true, theme: 'dark', themeVariables: { primaryColor: '#38bdf8', primaryTextColor: '#e2e8f0', primaryBorderColor: '#334155', lineColor: '#94a3b8', secondaryColor: '#1e293b', tertiaryColor: '#0f172a' } });
+  </script>
+  <script>
+    (function() {
+      var nav = document.querySelector('.sidebar nav');
+      var links = nav.querySelectorAll('a');
+      var sections = [];
+      links.forEach(function(a) {
+        var id = a.getAttribute('href').slice(1);
+        if (id && document.getElementById(id)) sections.push({ id: id, link: a });
+      });
+      function updateActive() {
+        var top = window.scrollY + 80;
+        var current = null;
+        sections.forEach(function(s) {
+          var el = document.getElementById(s.id);
+          if (el && el.offsetTop <= top) current = s;
+        });
+        links.forEach(function(a) { a.classList.remove('active'); });
+        if (current) current.link.classList.add('active');
+      }
+      window.addEventListener('scroll', updateActive);
+      updateActive();
+    })();
+  </script>
+</body>
+</html>
