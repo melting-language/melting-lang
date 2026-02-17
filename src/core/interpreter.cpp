@@ -4,6 +4,7 @@
 #include "http_server.hpp"
 #include "mysql_builtin.hpp"
 #include "gui_window.hpp"
+#include "module_loader.hpp"
 #include <iostream>
 #include <fstream>
 #include <sstream>
@@ -11,6 +12,8 @@
 #include <cctype>
 #include <cmath>
 #include <cstdint>
+#include <cstdio>
+#include <random>
 
 struct ReturnException : std::exception {
     Value value;
@@ -254,6 +257,101 @@ static std::string dirname(const std::string& path) {
     return path.substr(0, i - 1);
 }
 
+static bool fileExists(const std::string& path) {
+    std::ifstream f(path);
+    return f.good();
+}
+
+static std::string trim(const std::string& s) {
+    size_t start = s.find_first_not_of(" \t\r\n");
+    if (start == std::string::npos) return "";
+    size_t end = s.find_last_not_of(" \t\r\n");
+    return s.substr(start, end == std::string::npos ? std::string::npos : end - start + 1);
+}
+
+void Interpreter::setBinDir(const std::string& binDir) {
+    binDir_ = binDir;
+}
+
+void Interpreter::loadGlobalConfig() {
+    if (binDir_.empty()) return;
+    std::string configPath = binDir_ + "/melt.ini";
+    std::ifstream f(configPath);
+    if (!f) return;
+    config_.clear();
+    modulePath_.clear();
+    std::string line;
+    while (std::getline(f, line)) {
+        size_t comment = line.find('#');
+        if (comment != std::string::npos) line = line.substr(0, comment);
+        size_t eq = line.find('=');
+        if (eq == std::string::npos) continue;
+        std::string key = trim(line.substr(0, eq));
+        std::string value = trim(line.substr(eq + 1));
+        if (key.empty()) continue;
+        config_[key] = value;
+        if (key == "modulePath") {
+            size_t pos = 0;
+            while (pos < value.size()) {
+                size_t next = value.find(',', pos);
+                std::string part = trim(next == std::string::npos ? value.substr(pos) : value.substr(pos, next - pos));
+                if (!part.empty()) modulePath_.push_back(binDir_ + "/" + part);
+                if (next == std::string::npos) break;
+                pos = next + 1;
+            }
+        }
+    }
+}
+
+void Interpreter::loadConfig(const std::string& entryDir) {
+    if (entryDir.empty()) return;
+    std::string configPath = entryDir + "/melt.config";
+    std::ifstream f(configPath);
+    if (!f) return;
+    std::string line;
+    while (std::getline(f, line)) {
+        size_t comment = line.find('#');
+        if (comment != std::string::npos) line = line.substr(0, comment);
+        size_t eq = line.find('=');
+        if (eq == std::string::npos) continue;
+        std::string key = trim(line.substr(0, eq));
+        std::string value = trim(line.substr(eq + 1));
+        if (key.empty()) continue;
+        config_[key] = value;
+        if (key == "modulePath") {
+            size_t pos = 0;
+            while (pos < value.size()) {
+                size_t next = value.find(',', pos);
+                std::string part = trim(next == std::string::npos ? value.substr(pos) : value.substr(pos, next - pos));
+                if (!part.empty()) modulePath_.push_back(entryDir + "/" + part);
+                if (next == std::string::npos) break;
+                pos = next + 1;
+            }
+        }
+    }
+}
+
+std::string Interpreter::resolveImportPath(const std::string& path) {
+    std::string withExt = path;
+    if (path.find('.') == std::string::npos)
+        withExt = path + ".melt";
+    auto tryPath = [](const std::string& base, const std::string& p) -> std::string {
+        if (base.empty()) return p;
+        return base + "/" + p;
+    };
+    std::string candidate = tryPath(currentDir_, withExt);
+    if (fileExists(candidate)) return candidate;
+    candidate = tryPath(currentDir_, path);
+    if (fileExists(candidate)) return candidate;
+    for (const std::string& base : modulePath_) {
+        candidate = tryPath(base, withExt);
+        if (fileExists(candidate)) return candidate;
+        candidate = tryPath(base, path);
+        if (fileExists(candidate)) return candidate;
+    }
+    throw std::runtime_error("Module not found: " + path);
+}
+
 std::string Interpreter::resolvePath(const std::string& path) {
     if (currentDir_.empty()) return path;
     return currentDir_ + "/" + path;
@@ -263,6 +361,15 @@ std::string Interpreter::getResolvedPath(const std::string& path) const {
     if (currentDir_.empty() || path.empty()) return path;
     if (path[0] == '/' || (path.size() >= 2 && path[1] == ':')) return path;
     return currentDir_ + "/" + path;
+}
+
+void Interpreter::addModulePath(const std::string& dir) {
+    if (!dir.empty()) modulePath_.push_back(dir);
+}
+
+std::string Interpreter::getConfig(const std::string& key) const {
+    auto it = config_.find(key);
+    return it != config_.end() ? it->second : "";
 }
 
 static std::string contentTypeFromPath(const std::string& path) {
@@ -352,7 +459,23 @@ bool Interpreter::saveImagePpm(const std::string& path) const {
 void Interpreter::interpret(const std::vector<std::unique_ptr<Stmt>>& statements,
                             const std::string& currentFilePath) {
     currentDir_ = dirname(currentFilePath);
+    loadGlobalConfig();
+    loadConfig(currentDir_);
     if (nativeFunctions_.empty()) registerBuiltins();
+    std::string extEnabled = getConfig("extension_enabled");
+    bool loadExt = true;
+    if (!extEnabled.empty()) {
+        std::string v = extEnabled;
+        for (char& c : v) c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
+        if (v == "0" || v == "false" || v == "off" || v == "no") loadExt = false;
+    }
+    if (loadExt) {
+        std::string extDir = getConfig("extension_dir");
+        if (extDir.empty()) extDir = "modules";
+        std::string extList = getConfig("extension");
+        if (!extList.empty() && !binDir_.empty())
+            loadExtensions(this, binDir_, extDir, extList);
+    }
     for (const auto& stmt : statements) {
         execute(*stmt);
     }
@@ -608,6 +731,96 @@ void Interpreter::registerBuiltins() {
         auto* arr = std::get_if<std::shared_ptr<MeltArray>>(&args[0]);
         if (!arr || !*arr) return (double)0;
         return (double)(*arr)->data.size();
+    });
+    // Number: format, random, round, floor, ceil, abs, min, max
+    variables_["numberFormat"] = reg([](Interpreter* i, std::vector<Value> args) -> Value {
+        (void)i;
+        if (args.empty() || !std::holds_alternative<double>(args[0])) return std::string("");
+        double n = std::get<double>(args[0]);
+        int decimals = 0;
+        if (args.size() >= 2 && std::holds_alternative<double>(args[1]))
+            decimals = (int)std::get<double>(args[1]);
+        if (decimals < 0) decimals = 0;
+        if (decimals > 20) decimals = 20;
+        char buf[64];
+        if (decimals == 0)
+            snprintf(buf, sizeof(buf), "%.0f", n);
+        else
+            snprintf(buf, sizeof(buf), "%.*f", decimals, n);
+        return std::string(buf);
+    });
+    variables_["random"] = reg([](Interpreter* i, std::vector<Value> args) -> Value {
+        (void)i;
+        static std::mt19937 gen(static_cast<unsigned>(std::random_device{}()));
+        if (args.empty()) {
+            std::uniform_real_distribution<double> dist(0.0, 1.0);
+            return dist(gen);
+        }
+        if (args.size() >= 2 && std::holds_alternative<double>(args[0]) && std::holds_alternative<double>(args[1])) {
+            double lo = std::get<double>(args[0]);
+            double hi = std::get<double>(args[1]);
+            if (lo > hi) std::swap(lo, hi);
+            std::uniform_real_distribution<double> dist(lo, hi);
+            return dist(gen);
+        }
+        return 0.0;
+    });
+    variables_["randomInt"] = reg([](Interpreter* i, std::vector<Value> args) -> Value {
+        (void)i;
+        static std::mt19937 gen(static_cast<unsigned>(std::random_device{}()));
+        if (args.size() < 2 || !std::holds_alternative<double>(args[0]) || !std::holds_alternative<double>(args[1]))
+            return 0.0;
+        int lo = (int)std::get<double>(args[0]);
+        int hi = (int)std::get<double>(args[1]);
+        if (lo > hi) std::swap(lo, hi);
+        std::uniform_int_distribution<int> dist(lo, hi);
+        return (double)dist(gen);
+    });
+    variables_["round"] = reg([](Interpreter* i, std::vector<Value> args) -> Value {
+        (void)i;
+        if (args.empty() || !std::holds_alternative<double>(args[0])) return 0.0;
+        return std::round(std::get<double>(args[0]));
+    });
+    variables_["floor"] = reg([](Interpreter* i, std::vector<Value> args) -> Value {
+        (void)i;
+        if (args.empty() || !std::holds_alternative<double>(args[0])) return 0.0;
+        return std::floor(std::get<double>(args[0]));
+    });
+    variables_["ceil"] = reg([](Interpreter* i, std::vector<Value> args) -> Value {
+        (void)i;
+        if (args.empty() || !std::holds_alternative<double>(args[0])) return 0.0;
+        return std::ceil(std::get<double>(args[0]));
+    });
+    variables_["abs"] = reg([](Interpreter* i, std::vector<Value> args) -> Value {
+        (void)i;
+        if (args.empty() || !std::holds_alternative<double>(args[0])) return 0.0;
+        return std::fabs(std::get<double>(args[0]));
+    });
+    variables_["min"] = reg([](Interpreter* i, std::vector<Value> args) -> Value {
+        (void)i;
+        if (args.size() < 2 || !std::holds_alternative<double>(args[0]) || !std::holds_alternative<double>(args[1]))
+            return 0.0;
+        double a = std::get<double>(args[0]), b = std::get<double>(args[1]);
+        return a < b ? a : b;
+    });
+    variables_["max"] = reg([](Interpreter* i, std::vector<Value> args) -> Value {
+        (void)i;
+        if (args.size() < 2 || !std::holds_alternative<double>(args[0]) || !std::holds_alternative<double>(args[1]))
+            return 0.0;
+        double a = std::get<double>(args[0]), b = std::get<double>(args[1]);
+        return a > b ? a : b;
+    });
+    variables_["addModulePath"] = reg([](Interpreter* i, std::vector<Value> args) -> Value {
+        if (args.empty() || !std::holds_alternative<std::string>(args[0])) return std::monostate{};
+        std::string dir = std::get<std::string>(args[0]);
+        if (dir.empty()) return std::monostate{};
+        std::string full = (i->getResolvedPath(dir));
+        i->addModulePath(full);
+        return std::monostate{};
+    });
+    variables_["getConfig"] = reg([](Interpreter* i, std::vector<Value> args) -> Value {
+        if (args.empty() || !std::holds_alternative<std::string>(args[0])) return std::string("");
+        return i->getConfig(std::get<std::string>(args[0]));
     });
     variables_["chr"] = reg([](Interpreter* i, std::vector<Value> args) -> Value {
         (void)i;
@@ -988,7 +1201,7 @@ void Interpreter::executeExprStmt(const ExprStmt& stmt) {
 }
 
 void Interpreter::executeImport(const ImportStmt& stmt) {
-    std::string resolved = resolvePath(stmt.path);
+    std::string resolved = resolveImportPath(stmt.path);
     if (importedPaths_.count(resolved)) return;
     importedPaths_.insert(resolved);
     std::string source = readFile(resolved);

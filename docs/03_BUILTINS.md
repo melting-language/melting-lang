@@ -10,6 +10,47 @@ All built-ins are globally available in Melt. Optional builds (e.g. MySQL) add m
 
 ---
 
+## Numbers
+
+Formatting, random numbers, and basic math helpers.
+
+| Function | Description |
+|----------|-------------|
+| `numberFormat(n, decimals)` | Returns a string with `n` formatted to `decimals` decimal places (0–20). Example: <code>numberFormat(3.14159, 2)</code> → <code>"3.14"</code>. |
+| `random()` | Returns a random number in the range [0, 1). |
+| `random(lo, hi)` | Returns a random number in the range [lo, hi] (floating-point). |
+| `randomInt(lo, hi)` | Returns a random integer in the range [lo, hi] (inclusive). |
+| `round(n)` | Rounds to the nearest integer (returns a number). |
+| `floor(n)` | Greatest integer ≤ n. |
+| `ceil(n)` | Least integer ≥ n. |
+| `abs(n)` | Absolute value of n. |
+| `min(a, b)` | Returns the smaller of two numbers. |
+| `max(a, b)` | Returns the larger of two numbers. |
+
+---
+
+## Modules and central config
+
+**Module search:** `import "path"` resolves in order: (1) current file directory, (2) each directory in the **module path** (from `melt.config`, `melt.ini`, or `addModulePath`).
+
+**Global config (php.ini-style):** Place **`melt.ini`** in the same directory as the `melt` binary (e.g. `bin/melt.ini`). It is read first; then project **`melt.config`** (next to the entry script) is merged. Format for both: `key = value`, `#` comments.
+
+- **melt.ini (global):** Paths are relative to the **bin** directory. Keys: `modulePath`, `extension_dir` (default `modules`), `extension` (comma-separated list of extension names to load).
+- **melt.config (project):** Paths relative to the project directory. `modulePath` is **appended** to the list. Other keys overwrite global.
+
+**Loadable extensions:** If `extension` is set (in melt.ini or melt.config), Melt loads shared libraries from `binDir/extension_dir/name.suffix` (`.so` Linux, `.dylib` macOS, `.dll` Windows) and calls **`melt_register(Interpreter*)`** in each. Extensions register built-ins via `interp->registerBuiltin("name", fn)`.
+
+**Developing extensions:** Build a shared library that exports `extern "C" void melt_register(Interpreter* interp);` and call `interp->registerBuiltin("myFunc", ...)` for each built-in. Put the library in `bin/modules/` (or the dir set by `extension_dir`) and add its name to `extension` in melt.ini (e.g. `extension = math`).
+
+| Function | Description |
+|----------|-------------|
+| `addModulePath(dir)` | Adds a directory to the module search path (relative to current script dir). |
+| `getConfig(key)` | Returns value of `key` from melt.ini / melt.config, or `""`. |
+
+Example: **examples/module_config_demo/**.
+
+---
+
 ## File I/O
 
 Paths in `readFile` / `writeFile` are resolved relative to the **entry script’s directory** when the path is relative.

@@ -1,15 +1,20 @@
 CXX = g++
 # Include all source dirs so that #include "lexer.hpp" etc. resolve from subdirs
 CXXFLAGS = -std=c++17 -Wall -I src -I src/core -I src/http -I src/mysql -I src/gui
-SRC = src/main.cpp src/core/lexer.cpp src/core/parser.cpp src/core/interpreter.cpp src/http/http_server.cpp src/mysql/mysql_builtin.cpp
+SRC = src/main.cpp src/core/lexer.cpp src/core/parser.cpp src/core/interpreter.cpp src/core/module_loader.cpp src/http/http_server.cpp src/mysql/mysql_builtin.cpp
 BINDIR = bin
 TARGET = $(BINDIR)/melt
+# Linux needs -ldl for dlopen; macOS has it in libSystem
+UNAME_S := $(shell uname -s 2>/dev/null || echo unknown)
+ifeq ($(UNAME_S),Linux)
+LDFLAGS += -ldl -rdynamic
+endif
 
 all: $(TARGET)
 
 $(TARGET): $(SRC)
 	@mkdir -p $(BINDIR)
-	$(CXX) $(CXXFLAGS) -o $(TARGET) $(SRC)
+	$(CXX) $(CXXFLAGS) -o $(TARGET) $(SRC) $(LDFLAGS)
 
 # Build with MySQL support. Requires libmysqlclient-dev (Linux) or mysql (Homebrew).
 # Adjust MYSQL_CFLAGS / MYSQL_LIBS if needed (e.g. -I/usr/local/mysql/include -L/usr/local/mysql/lib).
@@ -51,5 +56,28 @@ uninstall:
 
 clean:
 	rm -f $(TARGET)
+	rm -f $(BINDIR)/modules/example.so $(BINDIR)/modules/example.dylib $(BINDIR)/modules/example.dll
 
-.PHONY: all run clean with-mysql with-gui install uninstall
+# Example loadable extension: build into bin/modules/ (enable with extension = example in melt.ini).
+EXT_MODULES = $(BINDIR)/modules
+EXT_SRC = extensions/example/example.cpp
+ifeq ($(UNAME_S),Darwin)
+EXT_SUFFIX = .dylib
+else ifeq ($(UNAME_S),Linux)
+EXT_SUFFIX = .so
+else
+EXT_SUFFIX = .dll
+endif
+EXT_TARGET = $(EXT_MODULES)/example$(EXT_SUFFIX)
+
+modules: $(EXT_TARGET)
+
+$(EXT_TARGET): $(EXT_SRC)
+	@mkdir -p $(EXT_MODULES)
+ifeq ($(UNAME_S),Darwin)
+	$(CXX) $(CXXFLAGS) -fPIC -shared -undefined dynamic_lookup -o $(EXT_TARGET) $(EXT_SRC)
+else
+	$(CXX) $(CXXFLAGS) -fPIC -shared -o $(EXT_TARGET) $(EXT_SRC)
+endif
+
+.PHONY: all run clean with-mysql with-gui install uninstall modules

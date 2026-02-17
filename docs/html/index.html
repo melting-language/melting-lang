@@ -63,6 +63,16 @@
     }
     .sidebar nav a:hover { color: var(--accent); }
     .sidebar nav a.active { color: var(--accent); border-left-color: var(--accent); }
+    .sidebar nav .sub {
+      padding-left: 1.25rem;
+      margin-bottom: 0.25rem;
+    }
+    .sidebar nav .sub a {
+      font-size: 0.85rem;
+      color: var(--text-muted);
+    }
+    .sidebar nav .sub a:hover,
+    .sidebar nav .sub a.active { color: var(--accent); }
     .main {
       flex: 1;
       max-width: 780px;
@@ -151,11 +161,44 @@
       <nav>
         <a href="#overview">Overview</a>
         <a href="#getting-started">Getting Started</a>
+        <a href="#how-melt-works">How Melt works</a>
         <a href="#language-reference">Language Reference</a>
+        <div class="sub">
+          <a href="#lang-comments">Comments</a>
+          <a href="#lang-statements">Statements &amp; blocks</a>
+          <a href="#lang-variables">Variables</a>
+          <a href="#lang-types">Types</a>
+          <a href="#lang-operators">Operators</a>
+          <a href="#lang-control-flow">Control flow</a>
+          <a href="#lang-try-catch">Try / catch / throw</a>
+          <a href="#lang-print">Print</a>
+          <a href="#lang-classes">Classes &amp; objects</a>
+          <a href="#lang-arrays">Arrays</a>
+          <a href="#lang-import">Import</a>
+          <a href="#lang-truthiness">Truthiness</a>
+          <a href="#lang-keywords">Keywords &amp; literals</a>
+        </div>
         <a href="#builtins">Built-in Functions</a>
+        <div class="sub">
+          <a href="#builtins-output">Output</a>
+          <a href="#builtins-numbers">Numbers</a>
+          <a href="#builtins-modules-config">Modules &amp; config</a>
+          <a href="#builtins-file-io">File I/O</a>
+          <a href="#builtins-arrays">Arrays</a>
+          <a href="#builtins-vectors">Vectors</a>
+          <a href="#builtins-gui-render">GUI render</a>
+          <a href="#builtins-strings">Strings</a>
+          <a href="#builtins-json">JSON</a>
+          <a href="#builtins-encoding">Encoding / crypto</a>
+          <a href="#builtins-views">Views (templates)</a>
+          <a href="#builtins-http">HTTP server</a>
+          <a href="#builtins-stdio-mcp">Stdio / MCP</a>
+          <a href="#builtins-mysql">MySQL</a>
+        </div>
         <a href="#http-mvc">HTTP Server & MVC</a>
         <a href="#official-website">Official Website</a>
         <a href="#examples">Examples</a>
+        <a href="#development-guide">Development guide</a>
       </nav>
     </aside>
     <main class="main">
@@ -197,23 +240,77 @@ print name;</code></pre>
         <p>Paths: <code>import</code> paths are relative to the file containing the import. <code>readFile(path)</code> and similar resolve relative paths from the entry script’s directory. Run from the project root when using examples or the MVC app.</p>
       </section>
 
+      <section id="how-melt-works">
+        <h2>How Melt works</h2>
+        <p>These diagrams show how the interpreter runs a script and how loadable modules (extensions) are loaded.</p>
+        <h3>Interpreter startup and execution</h3>
+        <div class="mermaid" style="background: var(--bg-card); padding: 1rem; border-radius: 8px; margin: 1rem 0;">sequenceDiagram
+  participant Main as main (binary)
+  participant Interp as Interpreter
+  participant Global as melt.ini
+  participant Project as melt.config
+  participant Loader as Module loader
+  participant Ext as Extension .so/.dylib
+
+  Main->>Interp: setBinDir(binDir)
+  Main->>Interp: interpret(statements, entryPath)
+  Interp->>Global: loadGlobalConfig() → binDir/melt.ini
+  Interp->>Project: loadConfig(entryDir) → merge melt.config
+  Interp->>Interp: registerBuiltins()
+  Interp->>Loader: loadExtensions(binDir, extension_dir, extension list)
+  Loader->>Ext: dlopen, melt_register(interp)
+  Ext->>Interp: registerBuiltin(...)
+  Interp->>Interp: execute statements</div>
+        <p><strong>What the diagram means:</strong></p>
+        <ul>
+          <li><strong>main (binary)</strong> — the <code>melt</code> executable. It resolves the directory containing the binary (<code>binDir</code>), creates the interpreter, and calls <code>interpret()</code> with the parsed script and entry file path.</li>
+          <li><strong>Interpreter</strong> — holds config, module path, and built-in functions. It loads global config from <code>binDir/melt.ini</code> first, then merges project <code>melt.config</code> from the script’s directory.</li>
+          <li><strong>registerBuiltins()</strong> — registers core built-ins (print, readFile, jsonDecode, etc.). Then, if extensions are enabled and listed in config, it calls the module loader.</li>
+          <li><strong>Module loader</strong> — for each extension name in config, builds a path <code>binDir/extension_dir/name.so</code> (or .dylib/.dll), loads the shared library, finds the <code>melt_register</code> symbol, and calls it with the interpreter pointer.</li>
+          <li><strong>Extension</strong> — the loaded library calls <code>interp->registerBuiltin("name", fn)</code> to add new built-in functions. After all extensions are loaded, the interpreter runs the script’s statements.</li>
+        </ul>
+        <h3>How loadable modules work</h3>
+        <div class="mermaid" style="background: var(--bg-card); padding: 1rem; border-radius: 8px; margin: 1rem 0;">sequenceDiagram
+  participant Interp as Interpreter
+  participant Loader as Module loader
+  participant Lib as Extension .so or .dylib
+
+  Interp->>Loader: loadExtensions(binDir, extension_dir, extension list)
+  Loader->>Loader: split list by comma
+  loop For each extension name
+    Loader->>Loader: path = binDir + extension_dir + name + suffix
+    Loader->>Lib: dlopen(path)
+    Loader->>Lib: dlsym melt_register
+    Loader->>Lib: melt_register(interp)
+    Lib->>Interp: registerBuiltin(name, fn)
+    Note over Interp and Lib: Script can call new built-ins</div>
+        <p><strong>What the diagram means:</strong></p>
+        <ul>
+          <li><strong>Interpreter</strong> — reads <code>extension_dir</code> (default <code>modules</code>) and <code>extension</code> (e.g. <code>example, math</code>) from config. If <code>extension_enabled</code> is off, it skips loading.</li>
+          <li><strong>Module loader</strong> — splits the extension list by comma, trims each name, and for each builds the full path: <code>binDir + "/" + extension_dir + "/" + name + suffix</code> (suffix is <code>.so</code> on Linux, <code>.dylib</code> on macOS, <code>.dll</code> on Windows).</li>
+          <li><strong>dlopen</strong> — loads the shared library into the process. On failure (file missing or not a valid library), it logs to stderr and continues with the next extension.</li>
+          <li><strong>melt_register(interp)</strong> — the extension must export <code>extern "C" void melt_register(Interpreter* interp)</code>. The loader looks up this symbol and calls it once per library.</li>
+          <li><strong>registerBuiltin</strong> — inside <code>melt_register</code>, the extension calls <code>interp->registerBuiltin("name", function)</code> for each built-in it provides. Those functions become available to the Melt script like any other built-in.</li>
+        </ul>
+      </section>
+
       <section id="language-reference">
         <h2>Language Reference</h2>
-        <h3>Comments</h3>
+        <h3 id="lang-comments">Comments</h3>
         <p><code>//</code> line comment. <code>/* ... */</code> block comment.</p>
-        <h3>Statements &amp; blocks</h3>
+        <h3 id="lang-statements">Statements &amp; blocks</h3>
         <p>Statements end with <code>;</code>. Blocks use <code>{</code> <code>}</code>.</p>
-        <h3>Variables</h3>
+        <h3 id="lang-variables">Variables</h3>
         <p><code>let name = value;</code> to declare. <code>name = value;</code> to reassign.</p>
-        <h3>Types</h3>
+        <h3 id="lang-types">Types</h3>
         <p>Number, string, boolean (<code>true</code>, <code>false</code>), array <code>[1,2,3]</code>, object (class instance). Strings are double-quoted; support <code>\n</code> <code>\"</code> etc.</p>
-        <h3>Operators</h3>
+        <h3 id="lang-operators">Operators</h3>
         <p>Arithmetic: <code>+</code> <code>-</code> <code>*</code> <code>/</code> (plus string concatenation with <code>+</code>). Comparison: <code>==</code> <code>!=</code> <code>&lt;</code> <code>&lt;=</code> <code>&gt;</code> <code>&gt;=</code>. Logical: <code>&amp;&amp;</code> <code>||</code> <code>!</code> (short-circuit for <code>&amp;&amp;</code> and <code>||</code>). Assignment: <code>=</code> for variables, <code>obj.field = value</code>, <code>arr[i] = value</code>.</p>
-        <h3>Control flow</h3>
+        <h3 id="lang-control-flow">Control flow</h3>
         <pre><code>if (condition) { }
 if (condition) { } else { }
 while (condition) { }</code></pre>
-        <h3>Try / catch / throw</h3>
+        <h3 id="lang-try-catch">Try / catch / throw</h3>
         <pre><code>try {
     // statements that may throw
     throw "error message";
@@ -221,9 +318,9 @@ while (condition) { }</code></pre>
     // err holds the thrown value
     print err;</code></pre>
         <p><code>throw expr;</code> evaluates <code>expr</code> and throws it; execution jumps to the nearest <code>catch</code> block. The catch variable (e.g. <code>err</code>) receives the thrown value (any type: string, number, etc.). Both Melt’s <code>throw</code> and interpreter runtime errors (e.g. unknown variable, “Expected array for index”) are caught; the catch variable gets the error message string for runtime errors. Parser/syntax errors still abort before run. <code>return</code> inside try is not caught and propagates out.</p>
-        <h3>Print</h3>
+        <h3 id="lang-print">Print</h3>
         <p><code>print expr;</code></p>
-        <h3>Classes &amp; objects</h3>
+        <h3 id="lang-classes">Classes &amp; objects</h3>
         <pre><code>class Name {
     method init(a, b) { this.x = a; this.y = b; }
     method getX() { return this.x; }
@@ -231,31 +328,50 @@ while (condition) { }</code></pre>
 let obj = Name(1, 2);
 obj.getX();  // returns 1</code></pre>
         <p><code>init</code> is the constructor. <code>this</code> refers to the current object. <code>return expr;</code> or <code>return;</code> inside a method.</p>
-        <h3>Arrays</h3>
+        <h3 id="lang-arrays">Arrays</h3>
         <p>Literal <code>[a, b, c]</code>. Index: <code>arr[i]</code>, <code>arr[i] = value</code>. Built-ins: <code>arrayCreate</code>, <code>arrayPush</code>, <code>arrayGet</code>, <code>arraySet</code>, <code>arrayLength</code>.</p>
-        <h3>Import</h3>
+        <h3 id="lang-import">Import</h3>
         <pre><code>import "path.melt";</code></pre>
         <p>Path is relative to the importing file’s directory. One execution per resolved path; globals (variables, classes) are shared.</p>
-        <h3>Truthiness</h3>
+        <h3 id="lang-truthiness">Truthiness</h3>
         <p>Falsy: <code>false</code>, <code>0</code>, <code>""</code>, empty array, nothing. Everything else is truthy.</p>
-        <h3>Keywords &amp; literals</h3>
+        <h3 id="lang-keywords">Keywords &amp; literals</h3>
         <p><code>let</code> <code>if</code> <code>else</code> <code>while</code> <code>print</code> <code>class</code> <code>method</code> <code>this</code> <code>import</code> <code>return</code> <code>try</code> <code>catch</code> <code>throw</code>. Booleans: <code>true</code> <code>false</code>. Do not use <code>method</code> as a variable name.</p>
       </section>
 
       <section id="builtins">
         <h2>Built-in Functions</h2>
-        <h3>Output</h3>
+        <h3 id="builtins-output">Output</h3>
         <table>
           <tr><th>Built-in</th><th>Description</th></tr>
           <tr><td><code>print expr;</code></td><td>Prints value to stdout with newline.</td></tr>
         </table>
-        <h3>File I/O</h3>
+        <h3 id="builtins-numbers">Numbers</h3>
+        <p>Formatting, random numbers, and math helpers.</p>
+        <table>
+          <tr><th>Function</th><th>Description</th></tr>
+          <tr><td><code>numberFormat(n, decimals)</code></td><td>String with n to <code>decimals</code> places (0–20).</td></tr>
+          <tr><td><code>random()</code></td><td>Random number in [0, 1).</td></tr>
+          <tr><td><code>random(lo, hi)</code></td><td>Random number in [lo, hi].</td></tr>
+          <tr><td><code>randomInt(lo, hi)</code></td><td>Random integer in [lo, hi] inclusive.</td></tr>
+          <tr><td><code>round(n)</code> <code>floor(n)</code> <code>ceil(n)</code> <code>abs(n)</code></td><td>Rounding and absolute value.</td></tr>
+          <tr><td><code>min(a, b)</code> <code>max(a, b)</code></td><td>Smaller or larger of two numbers.</td></tr>
+        </table>
+        <h3 id="builtins-modules-config">Modules and central config</h3>
+        <p><strong>Global:</strong> <code>bin/melt.ini</code> (php.ini-style), read first. <strong>Project:</strong> <code>melt.config</strong> next to entry script; merged after. Format: <code>key = value</code>, <code>#</code> comments. Keys: <code>modulePath</code>, <code>extension_dir</code> (default <code>modules</code>), <code>extension</code> (comma-separated names of loadable .so/.dylib/.dll). <code>import "name"</code> resolves: current dir, then each modulePath dir. Loadable extensions export <code>melt_register(Interpreter*)</code> and call <code>interp-&gt;registerBuiltin(...)</code>.</p>
+        <table>
+          <tr><th>Function</th><th>Description</th></tr>
+          <tr><td><code>addModulePath(dir)</code></td><td>Add directory to module search path (relative to current script dir).</td></tr>
+          <tr><td><code>getConfig(key)</code></td><td>Value from melt.ini / melt.config, or <code>""</code>.</td></tr>
+        </table>
+        <p>Example: <code>examples/module_config_demo/</code>.</p>
+        <h3 id="builtins-file-io">File I/O</h3>
         <table>
           <tr><th>Function</th><th>Description</th></tr>
           <tr><td><code>readFile(path)</code></td><td>Returns file contents as string, or <code>""</code> on error.</td></tr>
           <tr><td><code>writeFile(path, content)</code></td><td>Writes string to file. Returns truthy/falsy.</td></tr>
         </table>
-        <h3>Arrays</h3>
+        <h3 id="builtins-arrays">Arrays</h3>
         <table>
           <tr><th>Function</th><th>Description</th></tr>
           <tr><td><code>arrayCreate()</code></td><td>New empty array.</td></tr>
@@ -264,11 +380,11 @@ obj.getX();  // returns 1</code></pre>
           <tr><td><code>arraySet(arr, i, value)</code></td><td>Set element.</td></tr>
           <tr><td><code>arrayLength(arr)</code></td><td>Number of elements.</td></tr>
         </table>
-        <h3>Vectors (math)</h3>
+        <h3 id="builtins-vectors">Vectors (math)</h3>
         <p>2D/3D vectors: <code>vectorCreate2(x, y)</code>, <code>vectorCreate3(x, y, z)</code>, <code>vectorAdd</code>, <code>vectorSub</code>, <code>vectorScale</code>, <code>vectorLength</code>, <code>vectorDot</code>, <code>vectorCross</code> (3D), <code>vectorX</code>/<code>vectorY</code>/<code>vectorZ</code>, <code>vectorDim</code>.</p>
-        <h3>GUI render (image buffer)</h3>
+        <h3 id="builtins-gui-render">GUI render (image buffer)</h3>
         <p><code>imageCreate(w, h)</code>, <code>imageFill(r, g, b)</code>, <code>imageSetPixel(x, y, r, g, b)</code>, <code>imageDrawLine(...)</code>, <code>imageSavePpm(path)</code>, <code>imagePreview()</code> (window; requires <code>make with-gui</code> and SDL2).</p>
-        <h3>Strings</h3>
+        <h3 id="builtins-strings">Strings</h3>
         <table>
           <tr><th>Function</th><th>Description</th></tr>
           <tr><td><code>splitString(str, sep)</code></td><td>Split by separator; returns array.</td></tr>
@@ -277,7 +393,7 @@ obj.getX();  // returns 1</code></pre>
           <tr><td><code>urlDecode(str)</code></td><td>Decode %XX and + (e.g. form values).</td></tr>
           <tr><td><code>chr(n)</code></td><td>One-character string with ASCII code n (0–255).</td></tr>
         </table>
-        <h3>JSON</h3>
+        <h3 id="builtins-json">JSON</h3>
         <table>
           <tr><th>Function</th><th>Description</th></tr>
           <tr><td><code>jsonEncode(value)</code></td><td>Value → JSON string.</td></tr>
@@ -285,24 +401,24 @@ obj.getX();  // returns 1</code></pre>
           <tr><td><code>objectCreate()</code></td><td>New empty object; use <code>obj.field = value</code> or <code>obj[key] = value</code> (string key), then <code>jsonEncode(obj)</code>.</td></tr>
         </table>
         <p><strong>Dynamic keys:</strong> <code>obj[key]</code> and <code>obj[key] = value</code> when <code>key</code> is a string (e.g. variable). Missing key returns falsy.</p>
-        <h3>Encoding / crypto</h3>
+        <h3 id="builtins-encoding">Encoding / crypto</h3>
         <table>
           <tr><th>Function</th><th>Description</th></tr>
           <tr><td><code>base64Encode(str)</code></td><td>Base64 encode.</td></tr>
           <tr><td><code>base64Decode(str)</code></td><td>Base64 decode.</td></tr>
           <tr><td><code>xorCipher(data, key)</code></td><td>XOR with key (encrypt/decrypt; obfuscation only).</td></tr>
         </table>
-        <h3>Views (templates)</h3>
+        <h3 id="builtins-views">Views (templates)</h3>
         <table>
           <tr><th>Function</th><th>Description</th></tr>
           <tr><td><code>renderView(templatePath, data)</code></td><td>Loads HTML template; <code>{{ key }}</code> escaped, <code>{!! key !!}</code> raw. Returns rendered string.</td></tr>
         </table>
-        <h3>HTTP server</h3>
+        <h3 id="builtins-http">HTTP server</h3>
         <p><strong>Request:</strong> <code>getRequestPath()</code> <code>getRequestMethod()</code> <code>getRequestBody()</code></p>
         <p><strong>Response:</strong> <code>setResponseBody(str)</code> <code>setResponseStatus(code)</code> <code>setResponseContentType(str)</code> <code>servePublic(path)</code></p>
         <p><strong>Control:</strong> <code>setHandler("ClassName")</code> <code>listen(port)</code></p>
         <p><code>servePublic(path)</code> serves from <code>public/js</code>, <code>public/css</code>, <code>public/images</code> when path matches.</p>
-        <h3>Stdio / MCP transport</h3>
+        <h3 id="builtins-stdio-mcp">Stdio / MCP transport</h3>
         <p>For stdio-based servers (e.g. MCP): one message per line on stdin, one response per line on stdout. <code>setMcpHandler("ClassName")</code> then <code>runMcp()</code>. Handler’s <code>handle()</code> uses <code>getMcpRequest()</code>, <code>jsonDecode</code>/<code>jsonEncode</code>, <code>setMcpResponse(str)</code>.</p>
         <h4>Architecture</h4>
         <p>The following diagram shows how the stdio transport works: the client sends one line per message on stdin; the <code>runMcp()</code> built-in sets the request, calls the Melt handler’s <code>handle()</code>, then writes the response line to stdout.</p>
@@ -318,6 +434,13 @@ obj.getX();  // returns 1</code></pre>
     RunMcp->>RunMcp: getMcpResponse
     RunMcp->>Client: response line (stdout)
   end</div>
+        <p><strong>What the diagram means:</strong></p>
+        <ul>
+          <li><strong>Client</strong> — the process that talks to your Melt script (e.g. an MCP host or another tool). It writes one line per message to the script’s stdin and reads one line per response from stdout.</li>
+          <li><strong>runMcp built-in</strong> — the C++ code behind <code>runMcp()</code>. It runs a loop: read a line from stdin, store it as the “current request,” call your Melt handler, then send the handler’s response as one line on stdout.</li>
+          <li><strong>Melt handle</strong> — your handler class’s <code>handle()</code> method. Inside it you call <code>getMcpRequest()</code> to get the line, parse it (e.g. <code>jsonDecode</code>), do your logic, and call <code>setMcpResponse(str)</code> to set the reply. That reply is what <code>runMcp()</code> sends back to the client.</li>
+          <li>The <strong>loop</strong> repeats for every message until stdin is closed (EOF), then <code>runMcp()</code> exits.</li>
+        </ul>
         <table>
           <tr><th>Function</th><th>Description</th></tr>
           <tr><td><code>readStdinLine()</code></td><td>Read one line from stdin; <code>""</code> on EOF.</td></tr>
@@ -328,7 +451,7 @@ obj.getX();  // returns 1</code></pre>
           <tr><td><code>setMcpHandler("ClassName")</code></td><td>Set MCP handler class (must have <code>handle()</code>).</td></tr>
           <tr><td><code>runMcp()</code></td><td>Block: read line → call handler → write response line; exits when stdin closed.</td></tr>
         </table>
-        <h3>MySQL (optional, <code>make with-mysql</code>)</h3>
+        <h3 id="builtins-mysql">MySQL (optional, <code>make with-mysql</code>)</h3>
         <table>
           <tr><th>Function</th><th>Description</th></tr>
           <tr><td><code>mysqlConnect(host, user, password, database)</code></td><td>Connect. Returns truthy/falsy.</td></tr>
@@ -406,6 +529,49 @@ listen(8080);</code></pre>
         <p><strong>Table:</strong> <code>blog_posts</code> (id, title, body, published, created_at). All posts shown on /blog; drafts show a “Draft” badge.</p>
         <p><strong>Migrations:</strong> <code>make with-mysql</code>, then <code>./bin/melt examples/official_website_using_melt/run_migrations.melt</code>. Edit <code>config/database.melt</code> for your MySQL.</p>
         <p><strong>Create post:</strong> Open /blog/new, fill title and body, optionally check “Publish”, submit.</p>
+      </section>
+
+      <section id="development-guide">
+        <h2>Development guide</h2>
+        <p>Building the interpreter and writing loadable extensions.</p>
+        <h3>Building the interpreter</h3>
+        <p>From the repo root:</p>
+        <pre><code>make          # bin/melt
+make modules  # build example extension → bin/modules/</code></pre>
+        <p>Optional: <code>make with-mysql</code>, <code>make with-gui</code>. Config is read from <code>bin/melt.ini</code> and project <code>melt.config</code>.</p>
+        <h3>Extension contract</h3>
+        <p>Loadable extensions are shared libraries. Each must export:</p>
+        <pre><code>extern "C" void melt_register(Interpreter* interp);</code></pre>
+        <p>Melt calls <code>melt_register(interp)</code> after loading. Register built-ins with:</p>
+        <pre><code>interp->registerBuiltin("functionName", yourNativeFn);</code></pre>
+        <h3>Built-in function signature</h3>
+        <p>Type <code>Interpreter::NativeFn</code>:</p>
+        <pre><code>Value yourBuiltin(Interpreter* interp, std::vector&lt;Value&gt; args);</code></pre>
+        <p><code>Value</code> is a <code>std::variant</code> of <code>std::monostate</code>, <code>double</code>, <code>std::string</code>, <code>bool</code>, and object/array/class types. Return e.g. <code>Value(3.14)</code> or <code>Value(std::string("hi"))</code>.</p>
+        <h3>Include path</h3>
+        <p>Extensions need the same includes as the main binary so <code>#include "interpreter.hpp"</code> works (e.g. <code>-I src -I src/core</code> from repo root).</p>
+        <h3>Building extensions</h3>
+        <ul>
+          <li><strong>Example:</strong> <code>make modules</code> builds <code>extensions/example/example.cpp</code> into <code>bin/modules/example.dylib</code> (macOS), <code>example.so</code> (Linux), or <code>example.dll</code> (Windows).</li>
+          <li><strong>macOS:</strong> use <code>-fPIC -shared -undefined dynamic_lookup</code> so the extension resolves <code>Interpreter::registerBuiltin</code> from the main binary at load time.</li>
+          <li><strong>Linux:</strong> main binary is built with <code>-rdynamic</code> so loaded <code>.so</code> files can resolve interpreter symbols.</li>
+        </ul>
+        <h3>Configuration (melt.ini)</h3>
+        <p>In <code>bin/melt.ini</code> or project <code>melt.config</code>:</p>
+        <ul>
+          <li><code>extension_enabled</code> = 1|0|true|false|on|off — enable/disable loading extensions (default: on).</li>
+          <li><code>extension_dir</code> = directory relative to the melt binary (default: <code>modules</code>).</li>
+          <li><code>extension</code> = comma-separated extension names to load (e.g. <code>example</code>, <code>math</code>).</li>
+        </ul>
+        <p>Libraries are loaded from <code>&lt;binDir&gt;/&lt;extension_dir&gt;/&lt;name&gt;.so|.dylib|.dll</code>.</p>
+        <h3>Example extension</h3>
+        <p>See <code>extensions/example/example.cpp</code> for a minimal extension (<code>exampleVersion</code>, <code>exampleAdd</code>, <code>exampleSqrt</code>). Example docs: <code>extensions/example/index.html</code>.</p>
+        <h3>Adding your own extension</h3>
+        <ol>
+          <li>Add a folder under <code>extensions/</code> with a <code>.cpp</code> that implements <code>melt_register</code> and <code>registerBuiltin</code> calls.</li>
+          <li>Add a Makefile target to build a shared library into <code>bin/modules/&lt;name&gt;.so|.dylib|.dll</code>.</li>
+          <li>Set <code>extension = &lt;name&gt;</code> (or append to the list) in <code>melt.ini</code>.</li>
+        </ol>
       </section>
 
       <section id="examples">

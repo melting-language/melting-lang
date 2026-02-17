@@ -52,7 +52,19 @@ while (i < 3) {
         Parser parser(std::move(tokens));
         auto statements = parser.parse();
 
+        std::string binDir;
+        if (argc >= 1 && argv[0] && argv[0][0]) {
+            try {
+                std::string exePath = argv[0];
+                if (!exePath.empty() && exePath[0] != '/' && (exePath.size() < 2 || exePath[1] != ':'))
+                    exePath = std::filesystem::current_path().generic_string() + "/" + exePath;
+                std::filesystem::path p = std::filesystem::canonical(exePath);
+                binDir = p.parent_path().generic_string();
+            } catch (...) { /* leave binDir empty */ }
+        }
+
         Interpreter interpreter;
+        interpreter.setBinDir(binDir);
         std::string entryPath = "";
         if (argc > 1) {
             try {

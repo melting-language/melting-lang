@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Example extension — Melt</title>
+  <style>
+    :root { --bg: #1a1b26; --fg: #c0caf5; --muted: #565f89; --accent: #7aa2f7; --code: #9ece6a; }
+    body { font-family: system-ui, sans-serif; max-width: 640px; margin: 0 auto; padding: 2rem; background: var(--bg); color: var(--fg); line-height: 1.6; }
+    h1 { color: var(--accent); }
+    a { color: var(--accent); }
+    code { background: #24283b; color: var(--code); padding: 0.2em 0.4em; border-radius: 4px; }
+    ul { padding-left: 1.25rem; }
+  </style>
+</head>
+<body>
+  <h1>Example extension</h1>
+  <p>Minimal loadable extension for the Melt interpreter. It registers three built-ins: <code>exampleVersion()</code>, <code>exampleAdd(a, b)</code>, and <code>exampleSqrt(x)</code>.</p>
+
+  <h2>Documentation</h2>
+  <ul>
+    <li><a href="docs/developer.html">Developer guide</a> — how to write and build Melt extensions (contract, API, config, build steps).</li>
+  </ul>
+
+  <h2>Quick start</h2>
+  <ul>
+    <li>Build: <code>make modules</code> (from repo root).</li>
+    <li>Enable: <code>extension = example</code> in <code>bin/melt.ini</code>.</li>
+    <li>Run: <code>bin/melt examples/extension_example.melt</code>.</li>
+  </ul>
+</body>
+</html>

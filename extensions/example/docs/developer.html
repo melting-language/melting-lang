@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Melt extension developer guide</title>
+  <style>
+    :root { --bg: #1a1b26; --fg: #c0caf5; --muted: #565f89; --accent: #7aa2f7; --code: #9ece6a; }
+    body { font-family: system-ui, sans-serif; max-width: 720px; margin: 0 auto; padding: 2rem; background: var(--bg); color: var(--fg); line-height: 1.6; }
+    h1, h2, h3 { color: var(--accent); margin-top: 1.5em; }
+    a { color: var(--accent); }
+    code, pre { background: #24283b; color: var(--code); padding: 0.2em 0.4em; border-radius: 4px; }
+    pre { padding: 1rem; overflow-x: auto; }
+    pre code { padding: 0; }
+    nav { margin-bottom: 2rem; }
+    nav a { margin-right: 1rem; }
+  </style>
+</head>
+<body>
+  <nav><a href="../index.html">← Example extension</a></nav>
+
+  <h1>Melt extension developer guide</h1>
+  <p>How to write loadable extensions (shared libraries) for the Melt interpreter.</p>
+
+  <h2>1. Extension contract</h2>
+  <p>Your shared library must export exactly one symbol:</p>
+  <pre><code>extern "C" void melt_register(Interpreter* interp);</code></pre>
+  <p>When Melt loads the extension, it calls <code>melt_register(interp)</code>. Use it to register native built-in functions with:</p>
+  <pre><code>interp->registerBuiltin("functionName", yourNativeFn);</code></pre>
+
+  <h2>2. Built-in function signature</h2>
+  <p>Each built-in has type <code>Interpreter::NativeFn</code>:</p>
+  <pre><code>Value yourBuiltin(Interpreter* interp, std::vector&lt;Value&gt; args);</code></pre>
+  <p><code>Value</code> is a <code>std::variant</code> holding: <code>std::monostate</code>, <code>double</code>, <code>std::string</code>, <code>bool</code>, and object/array/class types. Return a <code>Value</code> (e.g. <code>Value(3.14)</code>, <code>Value(std::string("hi"))</code>).</p>
+
+  <h2>3. Include path</h2>
+  <p>Compile with the same include path as the main binary so <code>#include "interpreter.hpp"</code> resolves (e.g. <code>-I src -I src/core</code> from the repo root).</p>
+
+  <h2>4. Building</h2>
+  <ul>
+    <li><strong>From repo root:</strong> <code>make modules</code> builds the example extension into <code>bin/modules/</code> (<code>example.dylib</code> on macOS, <code>example.so</code> on Linux, <code>example.dll</code> on Windows).</li>
+    <li><strong>macOS:</strong> use <code>-fPIC -shared -undefined dynamic_lookup</code> so the extension resolves <code>Interpreter::registerBuiltin</code> from the main binary at load time.</li>
+    <li><strong>Linux:</strong> the main binary is built with <code>-rdynamic</code> so loaded <code>.so</code> files can resolve interpreter symbols.</li>
+  </ul>
+
+  <h2>5. Configuration (melt.ini)</h2>
+  <p>In <code>bin/melt.ini</code> (or project <code>melt.config</code>):</p>
+  <ul>
+    <li><code>extension_enabled</code> = <code>1</code>|<code>0</code>|true|false|on|off — enable or disable loading extensions (default: on).</li>
+    <li><code>extension_dir</code> = directory relative to the melt binary (default: <code>modules</code>).</li>
+    <li><code>extension</code> = comma-separated list of extension names to load (e.g. <code>example</code>, <code>math</code>).</li>
+  </ul>
+  <p>Extensions are loaded from <code>&lt;binDir&gt;/&lt;extension_dir&gt;/&lt;name&gt;.so|.dylib|.dll</code>.</p>
+
+  <h2>6. Example source</h2>
+  <p>See <code>extensions/example/example.cpp</code> for a minimal extension that registers <code>exampleVersion</code>, <code>exampleAdd</code>, and <code>exampleSqrt</code>.</p>
+
+  <h2>7. Adding your own extension</h2>
+  <ol>
+    <li>Create a folder under <code>extensions/</code> (e.g. <code>extensions/mymod/</code>) with a single <code>.cpp</code> implementing <code>melt_register</code> and <code>registerBuiltin</code> calls.</li>
+    <li>Add a Makefile target (or reuse the pattern from <code>example</code>) to build a shared library into <code>bin/modules/mymod.so</code> (or <code>.dylib</code>/<code>.dll</code>).</li>
+    <li>Set <code>extension = mymod</code> (or append <code>, mymod</code>) in <code>melt.ini</code>.</li>
+  </ol>
+</body>
+</html>

@@ -87,6 +87,12 @@ public:
     bool servePublic(const std::string& path);
     // Resolve path relative to script directory (for readFile in scripts).
     std::string getResolvedPath(const std::string& path) const;
+    // Module path: add a directory to search for imports (used by addModulePath built-in).
+    void addModulePath(const std::string& dir);
+    // Config: get value from melt.config (used by getConfig built-in).
+    std::string getConfig(const std::string& key) const;
+    // Set directory containing the melt binary (for melt.ini and extension loading).
+    void setBinDir(const std::string& binDir);
 
     using NativeFn = std::function<Value(Interpreter*, std::vector<Value>)>;
     // Register a native built-in (for extensions like MySQL)
@@ -104,6 +110,9 @@ private:
     Value this_;  // current 'this' for method execution
     std::string currentDir_;  // directory of the file being executed (for import resolution)
     std::set<std::string> importedPaths_;  // avoid circular/repeated imports
+    std::string binDir_;  // directory containing the melt binary (for melt.ini, extensions)
+    std::vector<std::string> modulePath_;  // additional directories to search for imports (from melt.config or addModulePath)
+    std::unordered_map<std::string, std::string> config_;  // key-value from melt.config / melt.ini (last value per key)
 
     std::vector<NativeFn> nativeFunctions_;
     void registerBuiltins();
@@ -134,7 +143,10 @@ private:
     int imageHeight_ = 0;
     std::vector<uint8_t> imageData_;
 
+    void loadGlobalConfig();  // load binDir_/melt.ini, clear then set config_ and modulePath_ (paths relative to binDir_)
+    void loadConfig(const std::string& entryDir);  // load melt.config from entryDir, merge into config_ and modulePath_
     std::string resolvePath(const std::string& path);
+    std::string resolveImportPath(const std::string& path);  // resolve import path (currentDir + modulePath), add .melt if needed
     std::string readFile(const std::string& path);
     std::string renderViewTemplate(const std::string& path, std::shared_ptr<MeltObject> obj);
     bool saveImagePpm(const std::string& path) const;
