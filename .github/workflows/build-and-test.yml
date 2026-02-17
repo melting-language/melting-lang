@@ -15,14 +15,12 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, macos-latest]
-        compiler: [gcc, clang]
         include:
           - os: ubuntu-latest
-            compiler: gcc
             cxx: g++
           - os: ubuntu-latest
-            compiler: clang
+            cxx: clang++
+          - os: macos-latest
             cxx: clang++
     steps:
       - name: Checkout repository

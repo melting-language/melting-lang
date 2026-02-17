@@ -80,4 +80,9 @@ else
 	$(CXX) $(CXXFLAGS) -fPIC -shared -o $(EXT_TARGET) $(EXT_SRC)
 endif
 
-.PHONY: all run clean with-mysql with-gui install uninstall modules
+# CI build: same as 'all' but ensure no MySQL/SDL linkage (avoids dyld load errors on runners).
+ci: MYSQL_CFLAGS :=
+ci: MYSQL_LIBS :=
+ci: $(TARGET)
+
+.PHONY: all run clean with-mysql with-gui install uninstall modules ci
