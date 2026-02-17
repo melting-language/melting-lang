@@ -1,5 +1,7 @@
 # Build and test the Melt language (C++ interpreter)
 # Uses Makefile; runs on Linux and macOS with GCC and Clang.
+# NOTE: This workflow does NOT use actions/checkout so submodules are never fetched.
+# If you still see submodule errors, push this file to the branch that runs CI (e.g. main).
 name: Build and Test
 
 on:
@@ -23,8 +25,9 @@ jobs:
           - os: macos-latest
             cxx: clang++
     steps:
-      # Clone without submodules so CI doesn't fail when submodule refs are missing.
-      - name: Checkout repository
+      # Do NOT use actions/checkout here — it would fetch submodules and fail.
+      # Manual clone fetches only the main repo at the triggering commit.
+      - name: Checkout repository (no submodules)
         env:
           GH_TOKEN: ${{ secrets.TOKEN }}
         run: |
