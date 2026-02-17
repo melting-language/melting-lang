@@ -1,5 +1,7 @@
 # Melt - A Simple Object-Oriented Language
 
+[![Release](https://github.com/melting-language/melting-lang/actions/workflows/release.yml/badge.svg)](https://github.com/melting-language/melting-lang/actions/workflows/release.yml)
+
 A minimal interpreted, object-oriented programming language built in C++.
 
 **Full documentation:** [docs/README.md](docs/README.md) — getting started, language reference, built-ins, HTTP server & MVC framework, examples. **HTML version:** [docs/html/index.html](docs/html/index.html) (open in a browser).
