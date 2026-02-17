@@ -1,8 +1,6 @@
 # Melt - A Simple Object-Oriented Language
 
-[![Release](https://github.com/melting-language/melting-lang/actions/workflows/release.yml/badge.svg)](https://github.com/melting-language/melting-lang/actions/workflows/release.yml)
-
-[![Build and Test](https://github.com/melting-language/melting-lang/actions/workflows/build-and-test.yml/badge.svg)](https://github.com/melting-language/melting-lang/actions/workflows/build-and-test.yml)
+[![Release](https://github.com/melting-language/melting-lang/actions/workflows/release.yml/badge.svg)](https://github.com/melting-language/melting-lang/actions/workflows/release.yml) [![Build and Test](https://github.com/melting-language/melting-lang/actions/workflows/build-and-test.yml/badge.svg)](https://github.com/melting-language/melting-lang/actions/workflows/build-and-test.yml)
 
 A minimal interpreted, object-oriented programming language built in C++.
 
