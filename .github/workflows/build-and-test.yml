@@ -51,3 +51,19 @@ jobs:
 
       - name: Test — run example_oop.melt
         run: ./bin/melt example_oop.melt
+
+      - name: Set binary artifact name
+        id: artifact
+        run: |
+          case "${{ matrix.os }}" in
+            ubuntu-latest) echo "name=melt-linux-x86_64-${{ matrix.cxx }}" >> "$GITHUB_OUTPUT" ;;
+            macos-latest)  echo "name=melt-darwin-$(uname -m)-${{ matrix.cxx }}" >> "$GITHUB_OUTPUT" ;;
+            *)            echo "name=melt-${{ matrix.os }}-${{ matrix.cxx }}" >> "$GITHUB_OUTPUT" ;;
+          esac
+
+      - name: Upload bin directory
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ steps.artifact.outputs.name }}
+          path: bin/
+          retention-days: 30

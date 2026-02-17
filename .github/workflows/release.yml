@@ -1,0 +1,80 @@
+# Build and publish release binaries when you push a version tag (e.g. v1.0.0).
+# Binaries are attached to the GitHub Release under the "bin" naming pattern.
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  build:
+    runs-on: ${{ matrix.os }}
+
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            cxx: g++
+            artifact_name: melt-linux-x86_64
+          - os: macos-latest
+            cxx: clang++
+            artifact_name: melt-darwin-arm64
+
+    steps:
+      - name: Checkout repository (no submodules)
+        env:
+          GH_TOKEN: ${{ secrets.TOKEN }}
+        run: |
+          git init
+          git remote add origin "https://x-access-token:${GH_TOKEN}@github.com/${{ github.repository }}.git"
+          git fetch --depth 1 origin "${{ github.sha }}":refs/heads/ci
+          git checkout ci
+
+      - name: Build (Make)
+        run: make ci CXX=${{ matrix.cxx }}
+        env:
+          MYSQL_CFLAGS: ""
+          MYSQL_LIBS: ""
+
+      - name: Upload release binary
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact_name }}
+          path: bin/melt
+
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: release-bin
+
+      - name: Prepare bin directory for release
+        run: |
+          mkdir -p bin
+          for dir in release-bin/*/; do
+            name=$(basename "$dir")
+            if [ -f "${dir}melt" ]; then
+              cp "${dir}melt" "bin/${name}"
+              chmod +x "bin/${name}"
+              echo "Added bin/${name}"
+            fi
+          done
+          ls -la bin/
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          draft: false
+          generate_release_notes: true
+          files: bin/*
+          fail_on_unmatched_files: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.TOKEN }}
