@@ -32,6 +32,12 @@ struct VarExpr : Expr {
     VarExpr(const std::string& n) : name(n) {}
 };
 
+struct AssignExpr : Expr {
+    std::string name;
+    std::unique_ptr<Expr> value;
+    AssignExpr(const std::string& n, std::unique_ptr<Expr> v) : name(n), value(std::move(v)) {}
+};
+
 struct BinaryExpr : Expr {
     std::string op;
     std::unique_ptr<Expr> left;
@@ -71,6 +77,13 @@ struct IndexExpr : Expr {
     std::unique_ptr<Expr> array;
     std::unique_ptr<Expr> index;
     IndexExpr(std::unique_ptr<Expr> a, std::unique_ptr<Expr> i) : array(std::move(a)), index(std::move(i)) {}
+};
+
+struct BlockStmt;
+struct LambdaExpr : Expr {
+    std::vector<std::string> params;
+    std::unique_ptr<BlockStmt> body;
+    LambdaExpr(std::vector<std::string> p, std::unique_ptr<BlockStmt> b) : params(std::move(p)), body(std::move(b)) {}
 };
 
 struct Stmt {
@@ -144,6 +157,15 @@ struct IfStmt : Stmt {
     std::unique_ptr<Stmt> elseBranch;
     IfStmt(std::unique_ptr<Expr> c, std::unique_ptr<Stmt> t, std::unique_ptr<Stmt> e)
         : condition(std::move(c)), thenBranch(std::move(t)), elseBranch(std::move(e)) {}
+};
+
+struct ForStmt : Stmt {
+    std::unique_ptr<Stmt> init;       // optional: let i = 0 or expr;
+    std::unique_ptr<Expr> condition;  // optional: empty means true
+    std::unique_ptr<Expr> update;     // optional
+    std::unique_ptr<Stmt> body;
+    ForStmt(std::unique_ptr<Stmt> i, std::unique_ptr<Expr> c, std::unique_ptr<Expr> u, std::unique_ptr<Stmt> b)
+        : init(std::move(i)), condition(std::move(c)), update(std::move(u)), body(std::move(b)) {}
 };
 
 struct WhileStmt : Stmt {
