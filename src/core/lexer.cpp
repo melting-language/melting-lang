@@ -67,6 +67,7 @@ Token Lexer::identifier() {
     if (value == "let") return Token(TokenType::Let, value, start);
     if (value == "if") return Token(TokenType::If, value, start);
     if (value == "else") return Token(TokenType::Else, value, start);
+    if (value == "for") return Token(TokenType::For, value, start);
     if (value == "while") return Token(TokenType::While, value, start);
     if (value == "class") return Token(TokenType::Class, value, start);
     if (value == "method") return Token(TokenType::Method, value, start);
@@ -78,6 +79,7 @@ Token Lexer::identifier() {
     if (value == "throw") return Token(TokenType::Throw, value, start);
     if (value == "true") return Token(TokenType::True, value, start);
     if (value == "false") return Token(TokenType::False, value, start);
+    if (value == "fn") return Token(TokenType::Fn, value, start);
 
     return Token(TokenType::Identifier, value, start);
 }
