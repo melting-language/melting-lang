@@ -1,9 +1,13 @@
 #include "interpreter.hpp"
 #include "lexer.hpp"
 #include "parser.hpp"
+#if !defined(MELT_EMBEDDED)
 #include "http_server.hpp"
 #include "mysql_builtin.hpp"
+#endif
+#if defined(USE_GUI) && !defined(MELT_EMBEDDED)
 #include "gui_window.hpp"
+#endif
 #include "module_loader.hpp"
 #include <iostream>
 #include <fstream>
@@ -548,6 +552,7 @@ void Interpreter::registerBuiltins() {
         nativeFunctions_.push_back(std::move(f));
         return NativeFunc{i};
     };
+#if !defined(MELT_EMBEDDED)
     variables_["getRequestPath"] = reg([](Interpreter* i, std::vector<Value> args) -> Value {
         (void)args;
         return i->getCurrentRequestPath();
@@ -625,6 +630,24 @@ void Interpreter::registerBuiltins() {
         runHttpServer(i, port);
         return false;
     });
+#else
+    {
+        auto httpStub = [](Interpreter*, std::vector<Value>) -> Value {
+        throw std::runtime_error("Melt embedded build: HTTP server not available");
+        };
+        variables_["getRequestPath"] = reg(httpStub);
+        variables_["getRequestMethod"] = reg(httpStub);
+        variables_["getRequestBody"] = reg(httpStub);
+        variables_["setResponseBody"] = reg(httpStub);
+        variables_["setResponseStatus"] = reg(httpStub);
+        variables_["setResponseContentType"] = reg(httpStub);
+        variables_["getRequestHeader"] = reg(httpStub);
+        variables_["setResponseHeader"] = reg(httpStub);
+        variables_["servePublic"] = reg(httpStub);
+        variables_["setHandler"] = reg(httpStub);
+        variables_["listen"] = reg(httpStub);
+    }
+#endif
     // Stdio / MCP transport
     variables_["readStdinLine"] = reg([](Interpreter* i, std::vector<Value> args) -> Value {
         (void)i;
@@ -1151,7 +1174,9 @@ void Interpreter::registerBuiltins() {
             obj = std::get<std::shared_ptr<MeltObject>>(args[1]);
         return i->renderViewTemplate(path, obj);
     });
+#if !defined(MELT_EMBEDDED)
     registerMysqlBuiltins(this);
+#endif
 }
 
 void Interpreter::registerBuiltin(const std::string& name, NativeFn fn) {
