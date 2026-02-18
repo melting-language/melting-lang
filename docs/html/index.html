@@ -207,7 +207,7 @@
 
       <section id="overview">
         <h2>Overview</h2>
-        <p>Melt supports variables, arithmetic, strings, arrays, control flow (<code>if</code>/<code>else</code>, <code>while</code>), <code>try</code>/<code>catch</code>/<code>throw</code>, classes and methods, <code>return</code>, and <code>import</code>. It includes built-ins for file I/O, JSON, HTTP server, optional MySQL, encoding (Base64, XOR), and Blade-like HTML templates. The <code>examples/web_project_mvc/</code> project shows a full MVC-style web app; <code>examples/official_website_using_melt/</code> is the full official Melt website with Home, Documentation, About, Resource, Support, and a dynamic Blog.</p>
+        <p>Melt supports variables, arithmetic, strings, arrays, control flow (<code>if</code>/<code>else</code>, <code>for</code>, <code>while</code>), <code>try</code>/<code>catch</code>/<code>throw</code>, classes and methods, <code>return</code>, and <code>import</code>. It includes built-ins for file I/O, JSON, HTTP server, optional MySQL, encoding (Base64, XOR), and Blade-like HTML templates. The <code>examples/web_project_mvc/</code> project shows a full MVC-style web app; <code>examples/official_website_using_melt/</code> is the full official Melt website with Home, Documentation, About, Resource, Support, and a dynamic Blog.</p>
         <div class="quick-ref">
           <h3>Quick reference</h3>
           <ul>
@@ -309,7 +309,9 @@ print name;</code></pre>
         <h3 id="lang-control-flow">Control flow</h3>
         <pre><code>if (condition) { }
 if (condition) { } else { }
+for (init; condition; update) { }   // init: let i = 0 or expr; condition and update optional
 while (condition) { }</code></pre>
+        <p><code>for ( init ; condition ; update ) body</code> — <code>init</code> runs once (optional: <code>let i = 0</code> or any expression followed by <code>;</code>). <code>condition</code> is checked each iteration (optional, empty means true). <code>update</code> runs after each body (optional; can be assignment, e.g. <code>i = i + 1</code>).</p>
         <h3 id="lang-try-catch">Try / catch / throw</h3>
         <pre><code>try {
     // statements that may throw
@@ -336,7 +338,7 @@ obj.getX();  // returns 1</code></pre>
         <h3 id="lang-truthiness">Truthiness</h3>
         <p>Falsy: <code>false</code>, <code>0</code>, <code>""</code>, empty array, nothing. Everything else is truthy.</p>
         <h3 id="lang-keywords">Keywords &amp; literals</h3>
-        <p><code>let</code> <code>if</code> <code>else</code> <code>while</code> <code>print</code> <code>class</code> <code>method</code> <code>this</code> <code>import</code> <code>return</code> <code>try</code> <code>catch</code> <code>throw</code>. Booleans: <code>true</code> <code>false</code>. Do not use <code>method</code> as a variable name.</p>
+        <p><code>let</code> <code>if</code> <code>else</code> <code>for</code> <code>while</code> <code>print</code> <code>class</code> <code>method</code> <code>this</code> <code>import</code> <code>return</code> <code>try</code> <code>catch</code> <code>throw</code>. Booleans: <code>true</code> <code>false</code>. Do not use <code>method</code> as a variable name.</p>
       </section>
 
       <section id="builtins">
