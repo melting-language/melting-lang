@@ -21,29 +21,18 @@ int main(int argc, char* argv[]) {
         if (argc > 1) {
             source = readFile(argv[1]);
         } else {
-            std::cout << "Melt - A simple programming language\n";
-            std::cout << "Usage: melt <file.melt>\n\n";
-            source = R"(
-let x = 10;
-let name = "Melt";
-print "Hello from ";
-print name;
-print "x = ";
-print x;
-print "x + 5 = ";
-print x + 5;
-if (x > 5) {
-    print "x is greater than 5";
-} else {
-    print "x is 5 or less";
-}
-let i = 0;
-while (i < 3) {
-    print i;
-    i = i + 1;
-}
-)";
-            std::cout << "Running built-in example:\n";
+            std::cout << "Melt - A lighweight object-oriented programming language\n\n";
+            std::cout << "Usage:\n";
+            std::cout << "  melt <file.melt>    Run a Melt script.\n\n";
+            std::cout << "Examples:\n";
+            std::cout << "  melt example.melt\n";
+            std::cout << "  melt examples/server.melt\n\n";
+            std::cout << "Help & documentation:\n";
+            std::cout << "  https://github.com/melting-language/melting-lang\n";
+            std::cout << "  docs/README.md in the project root\n\n";
+            std::cout << "Support:\n";
+            std::cout << "  GitHub Discussions / Issues: https://github.com/melting-language/melting-lang/issues\n";
+            return 0;
         }
 
         Lexer lexer(source);
