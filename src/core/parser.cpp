@@ -36,6 +36,7 @@ std::unique_ptr<Stmt> Parser::statement() {
     if (match(TokenType::Import)) return importStatement();
     if (match(TokenType::Class)) return classStatement();
     if (match(TokenType::If)) return ifStatement();
+    if (match(TokenType::For)) return forStatement();
     if (match(TokenType::While)) return whileStatement();
     if (match(TokenType::Return)) return returnStatement();
     if (match(TokenType::Try)) return tryStatement();
@@ -125,6 +126,39 @@ std::unique_ptr<Stmt> Parser::ifStatement() {
     std::unique_ptr<Stmt> elseBranch;
     if (match(TokenType::Else)) elseBranch = statement();
     return std::make_unique<IfStmt>(std::move(condition), std::move(thenBranch), std::move(elseBranch));
+}
+
+std::unique_ptr<Stmt> Parser::forStatement() {
+    if (!match(TokenType::LParen))
+        throw std::runtime_error("Expected '(' after 'for'");
+    std::unique_ptr<Stmt> init;
+    if (match(TokenType::Semicolon)) {
+        // no init
+    } else if (match(TokenType::Let)) {
+        init = letStatement();
+    } else {
+        init = std::make_unique<ExprStmt>(expression());
+        if (!match(TokenType::Semicolon))
+            throw std::runtime_error("Expected ';' after for init");
+    }
+    std::unique_ptr<Expr> condition;
+    if (check(TokenType::Semicolon)) {
+        advance();
+    } else {
+        condition = expression();
+        if (!match(TokenType::Semicolon))
+            throw std::runtime_error("Expected ';' after for condition");
+    }
+    std::unique_ptr<Expr> update;
+    if (check(TokenType::RParen)) {
+        advance();
+    } else {
+        update = expression();
+        if (!match(TokenType::RParen))
+            throw std::runtime_error("Expected ')' after for update");
+    }
+    auto body = statement();
+    return std::make_unique<ForStmt>(std::move(init), std::move(condition), std::move(update), std::move(body));
 }
 
 std::unique_ptr<Stmt> Parser::whileStatement() {
@@ -220,7 +254,22 @@ std::unique_ptr<Stmt> Parser::exprStatement() {
 }
 
 std::unique_ptr<Expr> Parser::expression() {
-    return logicalOr();
+    return assignment();
+}
+
+std::unique_ptr<Expr> Parser::assignment() {
+    auto expr = logicalOr();
+    if (expr && peek().type == TokenType::Assign) {
+        if (VarExpr* v = dynamic_cast<VarExpr*>(expr.get())) {
+            std::string name = v->name;
+            advance(); // =
+            auto value = assignment();
+            return std::make_unique<AssignExpr>(name, std::move(value));
+        }
+        // GetExpr/IndexExpr handled as SetPropertyStmt/SetIndexStmt in exprStatement
+        return expr;
+    }
+    return expr;
 }
 
 std::unique_ptr<Expr> Parser::logicalOr() {
@@ -318,6 +367,31 @@ std::unique_ptr<Expr> Parser::primary() {
         if (!match(TokenType::RBracket))
             throw std::runtime_error("Expected ']'");
         expr = std::make_unique<ArrayExpr>(std::move(elements));
+    } else if (match(TokenType::Fn)) {
+        if (!match(TokenType::LParen))
+            throw std::runtime_error("Expected '(' after 'fn'");
+        std::vector<std::string> params;
+        if (!check(TokenType::RParen)) {
+            if (peek().type != TokenType::Identifier)
+                throw std::runtime_error("Expected parameter name");
+            params.push_back(advance().value);
+            while (match(TokenType::Comma)) {
+                if (peek().type != TokenType::Identifier)
+                    throw std::runtime_error("Expected parameter name");
+                params.push_back(advance().value);
+            }
+        }
+        if (!match(TokenType::RParen))
+            throw std::runtime_error("Expected ')'");
+        if (!match(TokenType::LBrace))
+            throw std::runtime_error("Expected '{' for lambda body");
+        auto blockStmt = blockStatement();
+        BlockStmt* bs = dynamic_cast<BlockStmt*>(blockStmt.get());
+        if (!bs)
+            throw std::runtime_error("Expected block");
+        auto body = std::make_unique<BlockStmt>();
+        body->statements = std::move(bs->statements);
+        expr = std::make_unique<LambdaExpr>(std::move(params), std::move(body));
     } else {
         throw std::runtime_error("Unexpected token");
     }
