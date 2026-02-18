@@ -2,8 +2,10 @@ CXX = g++
 # Include all source dirs so that #include "lexer.hpp" etc. resolve from subdirs
 CXXFLAGS = -std=c++17 -Wall -I src -I src/core -I src/http -I src/mysql -I src/gui
 SRC = src/main.cpp src/core/lexer.cpp src/core/parser.cpp src/core/interpreter.cpp src/core/module_loader.cpp src/http/http_server.cpp src/mysql/mysql_builtin.cpp
+SRC_EMBEDDED = src/main.cpp src/core/lexer.cpp src/core/parser.cpp src/core/interpreter.cpp src/core/module_loader.cpp
 BINDIR = bin
 TARGET = $(BINDIR)/melt
+TARGET_EMBEDDED = $(BINDIR)/melt-embedded
 # Linux needs -ldl for dlopen; macOS has it in libSystem
 UNAME_S := $(shell uname -s 2>/dev/null || echo unknown)
 ifeq ($(UNAME_S),Linux)
@@ -44,6 +46,12 @@ with-gui: $(SRC_GUI)
 run: $(TARGET)
 	./$(TARGET) example.melt
 
+# Embedded build: smaller binary without HTTP, MySQL, or GUI. Output: bin/melt-embedded
+embedded: CXXFLAGS := -std=c++17 -Wall -DMELT_EMBEDDED -I src -I src/core
+embedded: $(SRC_EMBEDDED)
+	@mkdir -p $(BINDIR)
+	$(CXX) $(CXXFLAGS) -o $(TARGET_EMBEDDED) $(SRC_EMBEDDED) $(LDFLAGS)
+
 # Install melt binary. Default: /usr/local (use PREFIX=/usr for system-wide, or PREFIX=$(HOME)/.local for user).
 # Examples: make install   or   make install PREFIX=$(HOME)/.local   or   sudo make install
 PREFIX ?= /usr/local
@@ -55,7 +63,7 @@ uninstall:
 	rm -f $(DESTDIR)$(PREFIX)/bin/melt
 
 clean:
-	rm -f $(TARGET)
+	rm -f $(TARGET) $(TARGET_EMBEDDED)
 	rm -f $(BINDIR)/modules/example.so $(BINDIR)/modules/example.dylib $(BINDIR)/modules/example.dll
 
 # Example loadable extension: build into bin/modules/ (enable with extension = example in melt.ini).
@@ -85,4 +93,4 @@ ci: MYSQL_CFLAGS :=
 ci: MYSQL_LIBS :=
 ci: $(TARGET)
 
-.PHONY: all run clean with-mysql with-gui install uninstall modules ci
+.PHONY: all run clean with-mysql with-gui install uninstall modules ci embedded
