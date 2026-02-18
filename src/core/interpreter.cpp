@@ -27,6 +27,12 @@ struct ThrowException : std::exception {
     const char* what() const noexcept override { return "throw"; }
 };
 
+struct MeltClosureImpl {
+    std::unordered_map<std::string, Value> env;
+    MeltClosureImpl() = default;
+    explicit MeltClosureImpl(const std::unordered_map<std::string, Value>& e) : env(e) {}
+};
+
 static const char kBase64Chars[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
 
 static std::string base64Encode(const std::string& in) {
@@ -528,7 +534,11 @@ void Interpreter::callMcpHandler() {
     Value prevThis = this_;
     this_ = obj;
     const MeltMethod& m = mit->second;
-    for (const auto& s : m.body->statements) execute(*s);
+    try {
+        for (const auto& s : m.body->statements) execute(*s);
+    } catch (const ReturnException&) {
+        /* handler returned; normal exit */
+    }
     this_ = prevThis;
 }
 
@@ -1169,6 +1179,7 @@ void Interpreter::execute(Stmt& stmt) {
     if (auto p = dynamic_cast<SetIndexStmt*>(&stmt)) { executeSetIndex(*p); return; }
     if (auto p = dynamic_cast<BlockStmt*>(&stmt)) { executeBlock(*p); return; }
     if (auto p = dynamic_cast<IfStmt*>(&stmt)) { executeIf(*p); return; }
+    if (auto p = dynamic_cast<ForStmt*>(&stmt)) { executeFor(*p); return; }
     if (auto p = dynamic_cast<WhileStmt*>(&stmt)) { executeWhile(*p); return; }
     if (auto p = dynamic_cast<ReturnStmt*>(&stmt)) { executeReturn(*p); return; }
     if (auto p = dynamic_cast<TryCatchStmt*>(&stmt)) { executeTryCatch(*p); return; }
@@ -1180,14 +1191,16 @@ Value Interpreter::evaluate(const Expr& expr) {
     if (auto p = dynamic_cast<const StringExpr*>(&expr)) return evaluateString(*p);
     if (auto p = dynamic_cast<const BoolExpr*>(&expr)) return evaluateBool(*p);
     if (auto p = dynamic_cast<const VarExpr*>(&expr)) return evaluateVar(*p);
+    if (auto p = dynamic_cast<const AssignExpr*>(&expr)) return evaluateAssignExpr(*p);
     if (auto p = dynamic_cast<const ThisExpr*>(&expr)) return evaluateThis(*p);
     if (auto p = dynamic_cast<const GetExpr*>(&expr)) return evaluateGet(*p);
     if (auto p = dynamic_cast<const CallExpr*>(&expr)) return evaluateCall(*p);
+    if (auto p = dynamic_cast<const LambdaExpr*>(&expr)) return evaluateLambda(*p);
     if (auto p = dynamic_cast<const ArrayExpr*>(&expr)) return evaluateArray(*p);
     if (auto p = dynamic_cast<const IndexExpr*>(&expr)) return evaluateIndex(*p);
     if (auto p = dynamic_cast<const UnaryExpr*>(&expr)) return evaluateUnary(*p);
     if (auto p = dynamic_cast<const BinaryExpr*>(&expr)) return evaluateBinary(*p);
-    return false;
+    throw std::runtime_error("Unknown expression type");
 }
 
 void Interpreter::executePrint(const PrintStmt& stmt) {
@@ -1276,6 +1289,18 @@ void Interpreter::executeIf(const IfStmt& stmt) {
         execute(*stmt.elseBranch);
 }
 
+void Interpreter::executeFor(const ForStmt& stmt) {
+    if (stmt.init)
+        execute(*stmt.init);
+    for (;;) {
+        if (stmt.condition && !isTruthy(evaluate(*stmt.condition)))
+            break;
+        execute(*stmt.body);
+        if (stmt.update)
+            evaluate(*stmt.update);
+    }
+}
+
 void Interpreter::executeWhile(const WhileStmt& stmt) {
     while (isTruthy(evaluate(*stmt.condition)))
         execute(*stmt.body);
@@ -1329,6 +1354,14 @@ Value Interpreter::evaluateVar(const VarExpr& expr) {
         if (fit != obj.fields.end()) return fit->second;
     }
     throw std::runtime_error("Unknown variable: " + expr.name);
+}
+
+Value Interpreter::evaluateAssignExpr(const AssignExpr& expr) {
+    Value v = evaluate(*expr.value);
+    if (variables_.find(expr.name) == variables_.end())
+        throw std::runtime_error("Unknown variable: " + expr.name);
+    variables_[expr.name] = v;
+    return v;
 }
 
 Value Interpreter::evaluateThis(const ThisExpr&) {
@@ -1403,7 +1436,44 @@ Value Interpreter::evaluateCall(const CallExpr& expr) {
         return nativeFunctions_[nf->index](this, std::move(args));
     }
 
-    throw std::runtime_error("Can only call class constructor, method, or built-in");
+    if (auto* cl = std::get_if<MeltClosure>(&callee)) {
+        if (cl->params.size() != expr.args.size())
+            throw std::runtime_error("Lambda argument count mismatch");
+        // Evaluate all arguments in current scope so e.g. mul(n, 2) can resolve 'n' from caller
+        std::vector<Value> argValues;
+        argValues.reserve(expr.args.size());
+        for (const auto& a : expr.args)
+            argValues.push_back(evaluate(*a));
+        std::unordered_map<std::string, Value> savedVars = std::move(variables_);
+        variables_ = cl->captured ? cl->captured->env : std::unordered_map<std::string, Value>{};
+        for (size_t i = 0; i < cl->params.size(); ++i)
+            variables_[cl->params[i]] = std::move(argValues[i]);
+        Value result(std::monostate{});
+        try {
+            if (cl->body)
+                for (const auto& s : cl->body->statements) execute(*s);
+        } catch (const ReturnException& e) {
+            result = e.value;
+        }
+        // Write back captured variables that may have been updated (closure mutability)
+        if (cl->captured)
+            for (const auto& kv : variables_)
+                if (cl->captured->env.count(kv.first))
+                    cl->captured->env[kv.first] = kv.second;
+        variables_ = std::move(savedVars);
+        return result;
+    }
+
+    throw std::runtime_error("Can only call class constructor, method, built-in, or lambda");
+}
+
+Value Interpreter::evaluateLambda(const LambdaExpr& expr) {
+    MeltClosure cl;
+    cl.params = expr.params;
+    cl.body = expr.body.get();
+    cl.captured = std::make_shared<MeltClosureImpl>();
+    cl.captured->env = variables_;
+    return Value(std::move(cl));
 }
 
 Value Interpreter::getField(std::shared_ptr<MeltObject> obj, const std::string& name) {
@@ -1513,6 +1583,7 @@ bool Interpreter::isTruthy(const Value& v) {
     if (std::holds_alternative<std::string>(v)) return !std::get<std::string>(v).empty();
     if (std::holds_alternative<std::shared_ptr<MeltArray>>(v)) return !std::get<std::shared_ptr<MeltArray>>(v)->data.empty();
     if (std::holds_alternative<std::shared_ptr<MeltVec>>(v)) return true;
+    if (std::holds_alternative<MeltClosure>(v)) return true;
     return false;
 }
 
@@ -1536,6 +1607,8 @@ void Interpreter::printValue(const Value& v) {
         std::cout << "<bound method>";
     } else if (std::holds_alternative<NativeFunc>(v)) {
         std::cout << "<native function>";
+    } else if (std::holds_alternative<MeltClosure>(v)) {
+        std::cout << "<lambda>";
     } else if (std::holds_alternative<std::shared_ptr<MeltArray>>(v)) {
         auto& a = *std::get<std::shared_ptr<MeltArray>>(v);
         std::cout << "[";

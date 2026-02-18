@@ -31,13 +31,25 @@ struct NativeFunc {
     size_t index = 0;  // index into Interpreter::nativeFunctions_
 };
 
+struct MeltClosureImpl;
+struct MeltClosure {
+    std::vector<std::string> params;
+    BlockStmt* body = nullptr;  // non-owning; points into AST
+    std::shared_ptr<MeltClosureImpl> captured;  // shared so copies see same env (closure mutability)
+    MeltClosure() = default;
+    MeltClosure(MeltClosure&&) = default;
+    MeltClosure& operator=(MeltClosure&&) = default;
+    MeltClosure(const MeltClosure& other) = default;
+    MeltClosure& operator=(const MeltClosure& other) = default;
+};
+
 struct MeltArray;  // forward
 struct MeltVec;   // forward
 
 using Value = std::variant<std::monostate, double, std::string, bool,
     std::shared_ptr<MeltClass>, std::shared_ptr<MeltObject>, std::shared_ptr<MeltArray>,
     std::shared_ptr<MeltVec>,
-    BoundMethod, NativeFunc>;
+    BoundMethod, NativeFunc, MeltClosure>;
 
 struct MeltArray {
     std::vector<Value> data;
@@ -164,6 +176,7 @@ private:
     void executeSetIndex(const SetIndexStmt& stmt);
     void executeBlock(const BlockStmt& stmt);
     void executeIf(const IfStmt& stmt);
+    void executeFor(const ForStmt& stmt);
     void executeWhile(const WhileStmt& stmt);
     void executeReturn(const ReturnStmt& stmt);
     void executeTryCatch(const TryCatchStmt& stmt);
@@ -173,9 +186,11 @@ private:
     Value evaluateString(const StringExpr& expr);
     Value evaluateBool(const BoolExpr& expr);
     Value evaluateVar(const VarExpr& expr);
+    Value evaluateAssignExpr(const AssignExpr& expr);
     Value evaluateThis(const ThisExpr& expr);
     Value evaluateGet(const GetExpr& expr);
     Value evaluateCall(const CallExpr& expr);
+    Value evaluateLambda(const LambdaExpr& expr);
     Value evaluateArray(const ArrayExpr& expr);
     Value evaluateIndex(const IndexExpr& expr);
     Value evaluateUnary(const UnaryExpr& expr);
