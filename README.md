@@ -34,6 +34,8 @@ make
 
 This creates the **`bin/melt`** executable (the `bin/` directory is created if needed).
 
+For a smaller binary without HTTP server, MySQL, or GUI (e.g. for embedded or resource-constrained targets), use **`make embedded`** → **`bin/melt-embedded`**. Scripts that call `listen()`, MySQL built-ins, or `imagePreview()` will get a clear runtime error.
+
 ## Install (binary)
 
 Install the `melt` binary so you can run it from anywhere:

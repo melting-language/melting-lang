@@ -4,6 +4,9 @@ CXXFLAGS = -std=c++17 -Wall -I src -I src/core -I src/http -I src/mysql -I src/g
 SRC = src/main.cpp src/core/lexer.cpp src/core/parser.cpp src/core/interpreter.cpp src/core/module_loader.cpp src/http/http_server.cpp src/mysql/mysql_builtin.cpp
 BINDIR = bin
 TARGET = $(BINDIR)/melt
+# Embedded build: no HTTP, MySQL, or GUI; smaller binary for resource-constrained targets.
+SRC_EMBEDDED = src/main.cpp src/core/lexer.cpp src/core/parser.cpp src/core/interpreter.cpp src/core/module_loader.cpp
+TARGET_EMBEDDED = $(BINDIR)/melt-embedded
 # Linux needs -ldl for dlopen; macOS has it in libSystem
 UNAME_S := $(shell uname -s 2>/dev/null || echo unknown)
 ifeq ($(UNAME_S),Linux)
@@ -41,6 +44,14 @@ with-gui: $(SRC_GUI)
 	@mkdir -p $(BINDIR)
 	$(CXX) $(CXXFLAGS) -o $(TARGET) $(SRC_GUI) $(LDFLAGS)
 
+# Embedded profile: core + module_loader only; no HTTP, MySQL, or GUI. Output: bin/melt-embedded.
+CXXFLAGS_EMBEDDED = -std=c++17 -Wall -DMELT_EMBEDDED -I src -I src/core
+embedded: $(TARGET_EMBEDDED)
+
+$(TARGET_EMBEDDED): $(SRC_EMBEDDED)
+	@mkdir -p $(BINDIR)
+	$(CXX) $(CXXFLAGS_EMBEDDED) -o $(TARGET_EMBEDDED) $(SRC_EMBEDDED) $(LDFLAGS)
+
 run: $(TARGET)
 	./$(TARGET) example.melt
 
@@ -55,7 +66,7 @@ uninstall:
 	rm -f $(DESTDIR)$(PREFIX)/bin/melt
 
 clean:
-	rm -f $(TARGET)
+	rm -f $(TARGET) $(TARGET_EMBEDDED)
 	rm -f $(BINDIR)/modules/example.so $(BINDIR)/modules/example.dylib $(BINDIR)/modules/example.dll
 
 # Example loadable extension: build into bin/modules/ (enable with extension = example in melt.ini).
@@ -85,4 +96,4 @@ ci: MYSQL_CFLAGS :=
 ci: MYSQL_LIBS :=
 ci: $(TARGET)
 
-.PHONY: all run clean with-mysql with-gui install uninstall modules ci
+.PHONY: all run clean with-mysql with-gui install uninstall modules ci embedded

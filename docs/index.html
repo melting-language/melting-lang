@@ -199,6 +199,8 @@
         <a href="#official-website">Official Website</a>
         <a href="#examples">Examples</a>
         <a href="#development-guide">Development guide</a>
+        <a href="#module-development-guide">Module development guide</a>
+        <a href="#embedded-guide">Embedded guide</a>
       </nav>
     </aside>
     <main class="main">
@@ -214,6 +216,7 @@
             <li><strong>Run:</strong> <code>./bin/melt script.melt</code></li>
             <li><strong>Build:</strong> <code>make</code> → <code>bin/melt</code></li>
             <li><strong>With MySQL:</strong> <code>make with-mysql</code></li>
+            <li><strong>Embedded (smaller):</strong> <code>make embedded</code> → <code>bin/melt-embedded</code></li>
             <li><strong>Install:</strong> <code>make install</code></li>
             <li><strong>Extension:</strong> <code>.melt</code></li>
           </ul>
@@ -227,6 +230,7 @@
         <pre><code>make</code></pre>
         <p>This produces <strong>bin/melt</strong>. For MySQL support:</p>
         <pre><code>make with-mysql</code></pre>
+        <p>For a smaller binary without HTTP server, MySQL, or GUI (embedded profile): <code>make embedded</code> → <strong>bin/melt-embedded</strong>. Scripts that call <code>listen()</code>, MySQL built-ins, or <code>imagePreview()</code> will get a clear runtime error.</p>
         <h3>Install (optional)</h3>
         <pre><code>make install
 make install PREFIX=$(HOME)/.local   # user-only</code></pre>
@@ -576,6 +580,145 @@ make modules  # build example extension → bin/modules/</code></pre>
         </ol>
       </section>
 
+      <section id="module-development-guide">
+        <h2>Module development guide (step by step)</h2>
+        <p>This guide explains how to create a Melt <strong>loadable module</strong> (extension) in simple steps. A module is a shared library (.so, .dylib, or .dll) that adds new <strong>built-in functions</strong> to Melt. Your Melt scripts can then call these functions like any other built-in.</p>
+
+        <h3>What you need</h3>
+        <ul>
+          <li>A C++ compiler (same as for building Melt: g++ or clang++).</li>
+          <li>The Melt source code (so you can <code>#include "interpreter.hpp"</code>).</li>
+          <li>One or more .cpp files that implement your functions and the <code>melt_register</code> entry point.</li>
+        </ul>
+
+        <h3>Step 1: Create your module folder and source file</h3>
+        <p>Create a folder under <code>extensions/</code>, for example <code>extensions/mymodule/</code>. Inside it, create a <code>.cpp</code> file (e.g. <code>mymodule.cpp</code>). This file will contain all your native functions and the registration function.</p>
+
+        <h3>Step 2: Include the interpreter header</h3>
+        <p>At the top of your .cpp file, include the Melt interpreter so you can use <code>Interpreter</code>, <code>Value</code>, and <code>registerBuiltin</code>:</p>
+        <pre><code>#include "interpreter.hpp"</code></pre>
+        <p>When building, you must pass the same include paths as the main Melt binary (e.g. <code>-I src -I src/core</code> from the repo root).</p>
+
+        <h3>Step 3: Write a built-in function</h3>
+        <p>Every built-in has the same C++ signature:</p>
+        <pre><code>static Value myFunc(Interpreter* interp, std::vector&lt;Value&gt; args) {
+    // interp: use if you need the interpreter (e.g. get variables)
+    // args: the arguments passed from Melt (e.g. myFunc(1, 2) → args[0]=1, args[1]=2)
+    // Return a Value: number, string, bool, etc.
+    return Value(42.0);           // number
+    return Value(std::string("hi"));  // string
+    return Value(true);          // boolean
+}</code></pre>
+        <p><strong>Reading arguments:</strong> <code>args</code> is a vector of <code>Value</code>. Each <code>Value</code> can hold a number (<code>double</code>), string, bool, array, or object. Use <code>std::get_if&lt;double&gt;(&amp;args[0])</code> to get a number, <code>std::get_if&lt;std::string&gt;(&amp;args[0])</code> for a string, and so on. Check <code>args.size()</code> before indexing.</p>
+        <p><strong>Returning:</strong> Return <code>Value(...)</code>. For "no value" you can return <code>Value()</code> (monostate).</p>
+
+        <h3>Step 4: Implement the registration entry point</h3>
+        <p>Melt loads your library and looks for a single function named <code>melt_register</code>. It must be <code>extern "C"</code> so the name is not mangled. Inside it, register each of your built-ins with the interpreter:</p>
+        <pre><code>extern "C" void melt_register(Interpreter* interp) {
+    interp->registerBuiltin("myFunc", myFunc);
+    interp->registerBuiltin("myOtherFunc", myOtherFunc);
+}</code></pre>
+        <p>The first argument is the <strong>name as seen in Melt</strong> (your script will call <code>myFunc(...)</code>). The second is the C++ function pointer. Melt calls <code>melt_register(interp)</code> once when the extension is loaded.</p>
+
+        <h3>Step 5: Build the shared library</h3>
+        <p>You must compile your .cpp into a shared library and put it where Melt can find it.</p>
+        <ul>
+          <li><strong>Linux:</strong> <code>g++ -std=c++17 -fPIC -shared -I src -I src/core -o bin/modules/mymodule.so extensions/mymodule/mymodule.cpp</code> (Melt's main binary is built with <code>-rdynamic</code> so the .so can resolve interpreter symbols.)</li>
+          <li><strong>macOS:</strong> <code>clang++ -std=c++17 -fPIC -shared -undefined dynamic_lookup -I src -I src/core -o bin/modules/mymodule.dylib extensions/mymodule/mymodule.cpp</code></li>
+          <li><strong>Windows:</strong> Build a .dll with similar flags and place it in <code>bin/modules/mymodule.dll</code>.</li>
+        </ul>
+        <p>Or add a target to the main <code>Makefile</code> (see the existing <code>modules</code> target for <code>extensions/example/example.cpp</code>) so <code>make modules</code> (or <code>make mymodule</code>) builds your library into <code>bin/modules/</code>.</p>
+
+        <h3>Step 6: Enable the extension in config</h3>
+        <p>Create or edit <code>bin/melt.ini</code> (next to the <code>melt</code> binary). Add or set:</p>
+        <pre><code>extension_dir = modules
+extension = example,mymodule</code></pre>
+        <p><code>extension_dir</code> is the folder under the binary directory where Melt looks for libraries (default <code>modules</code>). <code>extension</code> is a comma-separated list of extension names (no suffix). Melt will load <code>bin/modules/mymodule.so</code> (or .dylib / .dll) and call <code>melt_register</code>.</p>
+
+        <h3>Step 7: Use your functions in Melt</h3>
+        <p>Run a script that calls your new built-ins. For example:</p>
+        <pre><code>let x = myFunc(1, 2);
+print myOtherFunc("hello");</code></pre>
+        <p>If the extension failed to load, Melt will print an error to stderr. If it loaded, your functions are available globally like <code>print</code> or <code>readFile</code>.</p>
+
+        <h3>Summary</h3>
+        <ol>
+          <li>Create <code>extensions/&lt;name&gt;/&lt;name&gt;.cpp</code>.</li>
+          <li>Include <code>interpreter.hpp</code>.</li>
+          <li>Implement one or more functions with signature <code>Value fn(Interpreter*, std::vector&lt;Value&gt; args)</code>.</li>
+          <li>Implement <code>extern "C" void melt_register(Interpreter* interp)</code> and call <code>interp->registerBuiltin("name", fn)</code> for each.</li>
+          <li>Build a shared library into <code>bin/modules/&lt;name&gt;.so|.dylib|.dll</code>.</li>
+          <li>Set <code>extension = &lt;name&gt;</code> in <code>bin/melt.ini</code> (or project <code>melt.config</code>).</li>
+          <li>Run <code>./bin/melt your_script.melt</code> and call your built-ins from the script.</li>
+        </ol>
+        <p>See <code>extensions/example/example.cpp</code> for a minimal working example (<code>exampleVersion</code>, <code>exampleAdd</code>, <code>exampleSqrt</code>).</p>
+      </section>
+
+      <section id="embedded-guide">
+        <h2>Embedded guide</h2>
+        <p>This section explains the <strong>embedded build</strong> of Melt, when to use it, what it includes and excludes, and how to run a sample embedded-style application.</p>
+
+        <h3>What is the embedded build?</h3>
+        <p>The embedded build (<code>make embedded</code>) produces a smaller binary, <strong>bin/melt-embedded</strong>, by excluding optional subsystems that are not needed on resource-constrained or embedded-style targets:</p>
+        <ul>
+          <li><strong>HTTP server</strong> — no <code>listen()</code>, <code>setHandler()</code>, <code>getRequestPath()</code>, <code>servePublic()</code>, etc. Scripts that call these get a clear runtime error: &quot;Melt embedded build: HTTP server not available&quot;.</li>
+          <li><strong>MySQL</strong> — no <code>mysqlConnect</code>, <code>mysqlQuery</code>, <code>mysqlFetchRow</code>, <code>mysqlClose</code>. Those built-ins are not registered (calling them yields &quot;unknown variable&quot;).</li>
+          <li><strong>GUI (SDL2)</strong> — no <code>imagePreview()</code>. The GUI window is not linked. Scripts that call it get a runtime error.</li>
+        </ul>
+        <p>The embedded binary still includes the <strong>core language</strong> (variables, types, control flow, classes, methods, <code>import</code>, <code>try</code>/<code>catch</code>/<code>throw</code>) and built-ins such as <code>print</code>, <code>readFile</code>, <code>writeFile</code>, arrays, JSON, base64, xorCipher, vectors, and the <strong>module loader</strong> (loadable extensions). So you can script logic, file I/O, and optional native extensions (e.g. GPIO or UART) without pulling in HTTP, MySQL, or SDL2.</p>
+
+        <h3>When to use it</h3>
+        <ul>
+          <li><strong>Smaller binary and fewer dependencies</strong> — Use <code>melt-embedded</code> when you run Melt on a device (e.g. Raspberry Pi, BeagleBone) or in an environment where you do not need a web server, database client, or GUI. The binary is smaller and does not link libmysqlclient or SDL2.</li>
+          <li><strong>Embedded-style scripting</strong> — Use it for scripts that implement control logic, read/write files or device nodes, or call into native extensions that talk to hardware (GPIO, UART, etc.). The script runs in a loop or is invoked by a host process; it does not start an HTTP server.</li>
+          <li><strong>CI or minimal installs</strong> — Use the embedded build in CI or minimal installs where you only need to run Melt scripts that do not use HTTP, MySQL, or GUI.</li>
+        </ul>
+
+        <h3>What is included vs excluded</h3>
+        <table>
+          <tr><th>Feature</th><th>Default <code>melt</code></th><th><code>melt-embedded</code></th></tr>
+          <tr><td>Core language (syntax, classes, import)</td><td>Yes</td><td>Yes</td></tr>
+          <tr><td>print, readFile, writeFile, arrays, JSON, base64, xorCipher, vectors</td><td>Yes</td><td>Yes</td></tr>
+          <tr><td>Loadable extensions (module_loader)</td><td>Yes</td><td>Yes</td></tr>
+          <tr><td>HTTP server (listen, setHandler, servePublic, …)</td><td>Yes</td><td>No (stub throws)</td></tr>
+          <tr><td>MySQL built-ins</td><td>Only if <code>make with-mysql</code></td><td>No</td></tr>
+          <tr><td>GUI (imagePreview)</td><td>Only if <code>make with-gui</code></td><td>No (stub throws)</td></tr>
+        </table>
+
+        <h3>How to build and run</h3>
+        <pre><code>make embedded</code></pre>
+        <p>This produces <strong>bin/melt-embedded</strong>. Run scripts with:</p>
+        <pre><code>./bin/melt-embedded path/to/script.melt</code></pre>
+        <p>Use the same working directory and path rules as for <code>melt</code> (e.g. run from project root when using <code>import</code> or relative paths in <code>readFile</code>). Do not call <code>listen()</code>, MySQL built-ins, or <code>imagePreview()</code> in scripts intended for the embedded binary.</p>
+
+        <h3>Sample embedded system</h3>
+        <p>A sample embedded-style application is provided in <strong>examples/embedded_system/</strong>. It demonstrates a simple control loop: read &quot;sensor&quot; input (from a file or simulated value), update state, and write &quot;actuator&quot; output (to a file or stdout). This pattern is typical of embedded or IoT scripts that run on a small device.</p>
+        <ul>
+          <li><strong>examples/embedded_system/main.melt</strong> — Entry point: loads config, runs the main loop for a number of cycles, and exits.</li>
+          <li><strong>examples/embedded_system/config.melt</strong> — Configuration (e.g. cycle count, paths for sensor/actuator files).</li>
+          <li><strong>examples/embedded_system/loop.melt</strong> — Core logic: read sensor, compute state, write output. Imported by main.</li>
+        </ul>
+        <p>Run it with the embedded binary (from project root):</p>
+        <pre><code>./bin/melt-embedded examples/embedded_system/main.melt</code></pre>
+        <p>You can use the full <code>bin/melt</code> as well; the script does not use HTTP, MySQL, or GUI. The embedded build is recommended so the binary and dependencies stay minimal.</p>
+
+        <h3>Extending for real hardware</h3>
+        <p>On a real embedded or single-board target (e.g. Raspberry Pi running Linux), you can:</p>
+        <ol>
+          <li>Build <code>melt-embedded</code> on the device or cross-compile, and install it (e.g. <code>make embedded &amp;&amp; make install PREFIX=/usr/local</code> with <code>TARGET_EMBEDDED</code> as the install binary if you extend the Makefile).</li>
+          <li>Implement a <strong>loadable extension</strong> that provides built-ins such as <code>gpioRead(pin)</code>, <code>gpioWrite(pin, value)</code>, <code>uartWrite(str)</code>, or <code>delayMs(ms)</code>. Register them in <code>melt_register</code> and load the extension via <code>melt.ini</code> or <code>melt.config</code>.</li>
+          <li>Write Melt scripts that call those built-ins in a loop, or invoke the script from a systemd unit or cron job. The sample in <code>examples/embedded_system/</code> uses file I/O as a stand-in for hardware; replace that with calls to your extension once it is available.</li>
+        </ol>
+
+        <h3>Summary</h3>
+        <ul>
+          <li><strong>Build:</strong> <code>make embedded</code> → <code>bin/melt-embedded</code>.</li>
+          <li><strong>Use when:</strong> You need a smaller binary and do not need HTTP, MySQL, or GUI.</li>
+          <li><strong>Run:</strong> <code>./bin/melt-embedded script.melt</code>. Avoid <code>listen()</code>, MySQL, and <code>imagePreview()</code>.</li>
+          <li><strong>Sample:</strong> <code>examples/embedded_system/main.melt</code> shows a simple sensor–logic–actuator loop; run it with <code>melt-embedded</code>.</li>
+        </ul>
+      </section>
+
       <section id="examples">
         <h2>Examples</h2>
         <p>Run from project root: <code>./bin/melt examples/&lt;path&gt;.melt</code></p>
@@ -592,6 +735,7 @@ make modules  # build example extension → bin/modules/</code></pre>
           <tr><td>comment_demo.melt</td><td>Comments.</td></tr>
           <tr><td>multi_file/main.melt</td><td>Import and use other .melt files.</td></tr>
           <tr><td>file_io.melt</td><td>readFile, writeFile.</td></tr>
+          <tr><td>embedded_system/main.melt</td><td>Sample embedded-style loop (sensor–logic–actuator); use with <code>./bin/melt-embedded</code>.</td></tr>
           <tr><td>array_demo.melt</td><td>Arrays and built-ins.</td></tr>
           <tr><td>json_demo.melt</td><td>jsonEncode, jsonDecode.</td></tr>
           <tr><td>encryption_demo.melt</td><td>Base64, xorCipher.</td></tr>

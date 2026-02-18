@@ -18,6 +18,8 @@ make with-mysql
 
 You need the MySQL client library (e.g. `libmysqlclient-dev` on Ubuntu, `mysql` on Homebrew).
 
+For a **smaller binary** without HTTP server, MySQL, or GUI (e.g. for embedded targets), use **`make embedded`**. This produces **`bin/melt-embedded`**. Scripts that call `listen()`, MySQL built-ins, or `imagePreview()` will get a clear runtime error.
+
 ## Install the binary (optional)
 
 Install `melt` so you can run it from any directory:
