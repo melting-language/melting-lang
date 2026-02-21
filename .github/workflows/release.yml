@@ -45,6 +45,34 @@ jobs:
           name: ${{ matrix.artifact_name }}
           path: bin/melt
 
+  build-windows:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout repository (no submodules)
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          git init
+          git remote add origin "https://x-access-token:${GH_TOKEN}@github.com/${{ github.repository }}.git"
+          git fetch --depth 1 origin "${{ github.sha }}":refs/heads/ci
+          git checkout ci
+
+      - name: Set up MSYS2 and MinGW
+        uses: msys2/setup-msys2@v2
+        with:
+          msystem: MINGW64
+          install: mingw-w64-x86_64-gcc make
+
+      - name: Build (Makefile.win)
+        run: make -f Makefile.win
+        shell: msys2 {0}
+
+      - name: Upload Windows binary
+        uses: actions/upload-artifact@v4
+        with:
+          name: melt-windows-x86_64
+          path: bin/melt.exe
+
   debian:
     runs-on: ubuntu-latest
     steps:
@@ -95,7 +123,7 @@ jobs:
           path: dist/*.deb
 
   release:
-    needs: [build, debian]
+    needs: [build, build-windows, debian]
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -115,6 +143,10 @@ jobs:
               cp "${dir}melt" "bin/${name}"
               chmod +x "bin/${name}"
               echo "Added bin/${name}"
+            fi
+            if [ -f "${dir}melt.exe" ]; then
+              cp "${dir}melt.exe" "bin/${name}.exe"
+              echo "Added bin/${name}.exe"
             fi
             if [ -d "${dir}" ] && ls "${dir}"/*.deb 1>/dev/null 2>&1; then
               cp "${dir}"/*.deb dist/
