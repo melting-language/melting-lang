@@ -3,6 +3,7 @@
 
 CXX = g++
 CXXFLAGS = -std=c++17 -Wall -I src -I src/core -I src/http -I src/mysql -I src/sqlite -I src/gui
+LDFLAGS = -lws2_32
 SRC = src/main.cpp src/core/lexer.cpp src/core/parser.cpp src/core/interpreter.cpp src/core/module_loader.cpp src/http/http_server.cpp src/mysql/mysql_builtin.cpp src/sqlite/sqlite_builtin.cpp
 BINDIR = bin
 TARGET = $(BINDIR)/melt.exe
@@ -11,7 +12,7 @@ all: $(TARGET)
 
 $(TARGET): $(SRC)
 	@mkdir -p $(BINDIR)
-	$(CXX) $(CXXFLAGS) -o $(TARGET) $(SRC)
+	$(CXX) $(CXXFLAGS) -o $(TARGET) $(SRC) $(LDFLAGS)
 
 clean:
 	rm -f $(TARGET)
