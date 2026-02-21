@@ -1,5 +1,5 @@
-# Build and publish release binaries when you push a version tag (e.g. v1.0.0).
-# Binaries are attached to the GitHub Release under the "bin" naming pattern.
+# Build and publish release binaries and Debian package when you push a version tag (e.g. v1.0.0).
+# Binaries are attached to the GitHub Release under the "bin" naming pattern; .deb under "dist".
 name: Release
 
 on:
@@ -44,8 +44,52 @@ jobs:
           name: ${{ matrix.artifact_name }}
           path: bin/melt
 
+  debian:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository (no submodules)
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          git init
+          git remote add origin "https://x-access-token:${GH_TOKEN}@github.com/${{ github.repository }}.git"
+          git fetch --depth 1 origin "${{ github.sha }}":refs/heads/ci
+          git checkout ci
+
+      - name: Set package version from tag
+        id: version
+        run: |
+          REF="${{ github.ref_name }}"
+          VERSION="${REF#v}"
+          echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
+          echo "Package version: ${VERSION}"
+
+      - name: Update debian/changelog
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+          sed -i "1s/([^)]*)/(${VERSION})/" debian/changelog
+          head -1 debian/changelog
+
+      - name: Install build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y debhelper build-essential
+
+      - name: Build Debian package
+        env:
+          MYSQL_CFLAGS: ""
+          MYSQL_LIBS: ""
+        run: |
+          dpkg-buildpackage -us -uc -b -d
+
+      - name: Upload Debian package
+        uses: actions/upload-artifact@v4
+        with:
+          name: debian-package
+          path: ../meltlang_*_amd64.deb
+
   release:
-    needs: build
+    needs: [build, debian]
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -58,7 +102,7 @@ jobs:
 
       - name: Prepare bin directory for release
         run: |
-          mkdir -p bin
+          mkdir -p bin dist
           for dir in release-bin/*/; do
             name=$(basename "$dir")
             if [ -f "${dir}melt" ]; then
@@ -66,15 +110,19 @@ jobs:
               chmod +x "bin/${name}"
               echo "Added bin/${name}"
             fi
+            if [ -d "${dir}" ] && ls "${dir}"/*.deb 1>/dev/null 2>&1; then
+              cp "${dir}"/*.deb dist/
+              echo "Added dist/*.deb"
+            fi
           done
-          ls -la bin/
+          ls -la bin/ dist/
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
           draft: false
           generate_release_notes: true
-          files: bin/*
+          files: bin/* dist/*
           fail_on_unmatched_files: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
