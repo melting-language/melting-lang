@@ -127,7 +127,9 @@ jobs:
         with:
           draft: false
           generate_release_notes: true
-          files: bin/* dist/*
+          files: |
+            bin/*
+            dist/*
           fail_on_unmatched_files: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
