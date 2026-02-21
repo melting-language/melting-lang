@@ -168,6 +168,16 @@ struct ForStmt : Stmt {
         : init(std::move(i)), condition(std::move(c)), update(std::move(u)), body(std::move(b)) {}
 };
 
+struct ForeachStmt : Stmt {
+    std::string firstVar;            // value (array) OR key/value first binding
+    std::string secondVar;           // optional: value for object, value for array when firstVar is index
+    bool hasSecondVar = false;
+    std::unique_ptr<Expr> iterable;
+    std::unique_ptr<Stmt> body;
+    ForeachStmt(std::string a, std::string b, bool hasB, std::unique_ptr<Expr> it, std::unique_ptr<Stmt> bd)
+        : firstVar(std::move(a)), secondVar(std::move(b)), hasSecondVar(hasB), iterable(std::move(it)), body(std::move(bd)) {}
+};
+
 struct WhileStmt : Stmt {
     std::unique_ptr<Expr> condition;
     std::unique_ptr<Stmt> body;

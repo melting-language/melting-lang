@@ -68,6 +68,8 @@ Token Lexer::identifier() {
     if (value == "if") return Token(TokenType::If, value, start);
     if (value == "else") return Token(TokenType::Else, value, start);
     if (value == "for") return Token(TokenType::For, value, start);
+    if (value == "foreach") return Token(TokenType::Foreach, value, start);
+    if (value == "in") return Token(TokenType::In, value, start);
     if (value == "while") return Token(TokenType::While, value, start);
     if (value == "class") return Token(TokenType::Class, value, start);
     if (value == "method") return Token(TokenType::Method, value, start);

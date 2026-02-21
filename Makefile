@@ -1,7 +1,7 @@
 CXX = g++
 # Include all source dirs so that #include "lexer.hpp" etc. resolve from subdirs
-CXXFLAGS = -std=c++17 -Wall -I src -I src/core -I src/http -I src/mysql -I src/gui
-SRC = src/main.cpp src/core/lexer.cpp src/core/parser.cpp src/core/interpreter.cpp src/core/module_loader.cpp src/http/http_server.cpp src/mysql/mysql_builtin.cpp
+CXXFLAGS = -std=c++17 -Wall -I src -I src/core -I src/http -I src/mysql -I src/sqlite -I src/gui
+SRC = src/main.cpp src/core/lexer.cpp src/core/parser.cpp src/core/interpreter.cpp src/core/module_loader.cpp src/http/http_server.cpp src/mysql/mysql_builtin.cpp src/sqlite/sqlite_builtin.cpp
 SRC_EMBEDDED = src/main.cpp src/core/lexer.cpp src/core/parser.cpp src/core/interpreter.cpp src/core/module_loader.cpp
 BINDIR = bin
 TARGET = $(BINDIR)/melt
@@ -25,6 +25,18 @@ MYSQL_LIBS   ?= $(shell pkg-config --libs mysqlclient 2>/dev/null)
 with-mysql: CXXFLAGS += -DUSE_MYSQL $(MYSQL_CFLAGS)
 with-mysql: LDFLAGS += $(MYSQL_LIBS)
 with-mysql: $(SRC)
+	@mkdir -p $(BINDIR)
+	$(CXX) $(CXXFLAGS) -o $(TARGET) $(SRC) $(LDFLAGS)
+
+# Build with SQLite support. Requires sqlite3 development library.
+SQLITE_CFLAGS ?= $(shell pkg-config --cflags sqlite3 2>/dev/null)
+SQLITE_LIBS   ?= $(shell pkg-config --libs sqlite3 2>/dev/null)
+ifeq ($(SQLITE_LIBS),)
+SQLITE_LIBS := -lsqlite3
+endif
+with-sqlite: CXXFLAGS += -DUSE_SQLITE $(SQLITE_CFLAGS)
+with-sqlite: LDFLAGS += $(SQLITE_LIBS)
+with-sqlite: $(SRC)
 	@mkdir -p $(BINDIR)
 	$(CXX) $(CXXFLAGS) -o $(TARGET) $(SRC) $(LDFLAGS)
 
@@ -65,10 +77,16 @@ uninstall:
 clean:
 	rm -f $(TARGET) $(TARGET_EMBEDDED)
 	rm -f $(BINDIR)/modules/example.so $(BINDIR)/modules/example.dylib $(BINDIR)/modules/example.dll
+	rm -f $(BINDIR)/modules/image_optimize.so $(BINDIR)/modules/image_optimize.dylib $(BINDIR)/modules/image_optimize.dll
+	rm -f $(BINDIR)/modules/os.so $(BINDIR)/modules/os.dylib $(BINDIR)/modules/os.dll
+	rm -f $(BINDIR)/modules/headless_browser.so $(BINDIR)/modules/headless_browser.dylib $(BINDIR)/modules/headless_browser.dll
 
 # Example loadable extension: build into bin/modules/ (enable with extension = example in melt.ini).
 EXT_MODULES = $(BINDIR)/modules
 EXT_SRC = extensions/example/example.cpp
+IMG_OPT_SRC = extensions/image_optimize/image_optimize.cpp
+OS_EXT_SRC = extensions/os/os.cpp
+HEADLESS_SRC = extensions/headless_browser/headless_browser.cpp
 ifeq ($(UNAME_S),Darwin)
 EXT_SUFFIX = .dylib
 else ifeq ($(UNAME_S),Linux)
@@ -77,8 +95,11 @@ else
 EXT_SUFFIX = .dll
 endif
 EXT_TARGET = $(EXT_MODULES)/example$(EXT_SUFFIX)
+IMG_OPT_TARGET = $(EXT_MODULES)/image_optimize$(EXT_SUFFIX)
+OS_EXT_TARGET = $(EXT_MODULES)/os$(EXT_SUFFIX)
+HEADLESS_TARGET = $(EXT_MODULES)/headless_browser$(EXT_SUFFIX)
 
-modules: $(EXT_TARGET)
+modules: $(EXT_TARGET) $(IMG_OPT_TARGET) $(OS_EXT_TARGET) $(HEADLESS_TARGET)
 
 $(EXT_TARGET): $(EXT_SRC)
 	@mkdir -p $(EXT_MODULES)
@@ -88,9 +109,33 @@ else
 	$(CXX) $(CXXFLAGS) -fPIC -shared -o $(EXT_TARGET) $(EXT_SRC)
 endif
 
+$(IMG_OPT_TARGET): $(IMG_OPT_SRC)
+	@mkdir -p $(EXT_MODULES)
+ifeq ($(UNAME_S),Darwin)
+	$(CXX) $(CXXFLAGS) -fPIC -shared -undefined dynamic_lookup -o $(IMG_OPT_TARGET) $(IMG_OPT_SRC)
+else
+	$(CXX) $(CXXFLAGS) -fPIC -shared -o $(IMG_OPT_TARGET) $(IMG_OPT_SRC)
+endif
+
+$(OS_EXT_TARGET): $(OS_EXT_SRC)
+	@mkdir -p $(EXT_MODULES)
+ifeq ($(UNAME_S),Darwin)
+	$(CXX) $(CXXFLAGS) -fPIC -shared -undefined dynamic_lookup -o $(OS_EXT_TARGET) $(OS_EXT_SRC)
+else
+	$(CXX) $(CXXFLAGS) -fPIC -shared -o $(OS_EXT_TARGET) $(OS_EXT_SRC)
+endif
+
+$(HEADLESS_TARGET): $(HEADLESS_SRC)
+	@mkdir -p $(EXT_MODULES)
+ifeq ($(UNAME_S),Darwin)
+	$(CXX) $(CXXFLAGS) -fPIC -shared -undefined dynamic_lookup -o $(HEADLESS_TARGET) $(HEADLESS_SRC)
+else
+	$(CXX) $(CXXFLAGS) -fPIC -shared -o $(HEADLESS_TARGET) $(HEADLESS_SRC)
+endif
+
 # CI build: same as 'all' but ensure no MySQL/SDL linkage (avoids dyld load errors on runners).
 ci: MYSQL_CFLAGS :=
 ci: MYSQL_LIBS :=
 ci: $(TARGET)
 
-.PHONY: all run clean with-mysql with-gui install uninstall modules ci embedded
+.PHONY: all run clean with-mysql with-sqlite with-gui install uninstall modules ci embedded

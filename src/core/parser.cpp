@@ -37,6 +37,7 @@ std::unique_ptr<Stmt> Parser::statement() {
     if (match(TokenType::Class)) return classStatement();
     if (match(TokenType::If)) return ifStatement();
     if (match(TokenType::For)) return forStatement();
+    if (match(TokenType::Foreach)) return foreachStatement();
     if (match(TokenType::While)) return whileStatement();
     if (match(TokenType::Return)) return returnStatement();
     if (match(TokenType::Try)) return tryStatement();
@@ -159,6 +160,29 @@ std::unique_ptr<Stmt> Parser::forStatement() {
     }
     auto body = statement();
     return std::make_unique<ForStmt>(std::move(init), std::move(condition), std::move(update), std::move(body));
+}
+
+std::unique_ptr<Stmt> Parser::foreachStatement() {
+    if (!match(TokenType::LParen))
+        throw std::runtime_error("Expected '(' after 'foreach'");
+    if (peek().type != TokenType::Identifier)
+        throw std::runtime_error("Expected variable name in foreach");
+    std::string firstVar = advance().value;
+    std::string secondVar = "";
+    bool hasSecondVar = false;
+    if (match(TokenType::Comma)) {
+        if (peek().type != TokenType::Identifier)
+            throw std::runtime_error("Expected second variable name in foreach");
+        secondVar = advance().value;
+        hasSecondVar = true;
+    }
+    if (!match(TokenType::In))
+        throw std::runtime_error("Expected 'in' in foreach");
+    auto iterable = expression();
+    if (!match(TokenType::RParen))
+        throw std::runtime_error("Expected ')' after foreach iterable");
+    auto body = statement();
+    return std::make_unique<ForeachStmt>(std::move(firstVar), std::move(secondVar), hasSecondVar, std::move(iterable), std::move(body));
 }
 
 std::unique_ptr<Stmt> Parser::whileStatement() {

@@ -170,6 +170,9 @@ Only meaningful when the script is used as an HTTP server (e.g. after `setHandle
 | `getRequestMethod()` | Returns the HTTP method (e.g. `"GET"`, `"POST"`). |
 | `getRequestBody()` | Returns the raw request body as a string. |
 | `getRequestHeader(name)` | Returns the value of the request header (e.g. `"Cookie"`). Case-insensitive. Empty string if missing. |
+| `uploadFileName(fieldName)` | For `multipart/form-data`, returns uploaded filename for the given field (e.g. `"file"`), or `""` if missing. |
+| `uploadFileData(fieldName)` | For `multipart/form-data`, returns uploaded file bytes as a string for the given field, or `""`. |
+| `uploadSave(fieldName, path)` | For `multipart/form-data`, saves uploaded file bytes from field to `path` (relative to current script dir). Returns truthy/falsy. |
 
 ### Response
 
@@ -219,6 +222,24 @@ Available only when Melt is built with **`make with-mysql`** and the MySQL clien
 | `mysqlConnect(host, user, password, database)` | Connects to MySQL. Returns a truthy value on success, falsy on failure. |
 | `mysqlQuery(sql)` | Executes the SQL string. Returns truthy on success, falsy on failure. For `SELECT`, use `mysqlFetchRow()` to read rows. |
 | `mysqlFetchRow()` | Returns the next row of the last `SELECT` as a single string with columns separated by ASCII 1 (`chr(1)`). Split with `splitString(row, chr(1))`. Returns `""` when there are no more rows. |
+| `mysqlFetchAll()` | Returns all remaining rows of the last `SELECT` as an array of rows (`[["c1","c2"], ...]`). |
 | `mysqlClose()` | Closes the connection and frees result. |
 
 One connection per interpreter; open once, run queries, then close.
+
+---
+
+## SQLite (optional)
+
+Available only when Melt is built with **`make with-sqlite`**.
+
+| Function | Description |
+|----------|-------------|
+| `sqliteOpen(path)` | Opens/creates a SQLite database file. Returns truthy/falsy. |
+| `sqliteExec(sql)` | Executes SQL that does not need row fetching (e.g. `CREATE`, `INSERT`, `UPDATE`, `DELETE`). |
+| `sqliteQuery(sql)` | Prepares a query for row-by-row reading. Returns truthy/falsy. |
+| `sqliteFetchRow()` | Returns next row as one string with columns separated by `chr(1)`. Returns `""` when done. |
+| `sqliteFetchAll()` | Returns all remaining rows of the prepared query as an array of rows (`[["c1","c2"], ...]`). |
+| `sqliteClose()` | Finalizes active statement and closes the database. |
+
+Like MySQL, split rows with `splitString(row, chr(1))`.

@@ -74,6 +74,23 @@ void registerMysqlBuiltins(Interpreter* interp) {
         }
         return out.str();
     });
+    interp->registerBuiltin("mysqlFetchAll", [](Interpreter* i, std::vector<Value> args) -> Value {
+        (void)args;
+        auto rows = std::make_shared<MeltArray>();
+        MYSQL_RES* res = (MYSQL_RES*)i->getMysqlRes();
+        if (!res) return rows;
+        unsigned int n = mysql_num_fields(res);
+        MYSQL_ROW row = nullptr;
+        while ((row = mysql_fetch_row(res)) != nullptr) {
+            auto rowArr = std::make_shared<MeltArray>();
+            for (unsigned int c = 0; c < n; ++c)
+                rowArr->data.push_back(std::string(row[c] ? row[c] : ""));
+            rows->data.push_back(rowArr);
+        }
+        mysql_free_result(res);
+        i->setMysqlRes(nullptr);
+        return rows;
+    });
     interp->registerBuiltin("mysqlClose", [](Interpreter* i, std::vector<Value> args) -> Value {
         (void)args;
         if (i->getMysqlRes()) {

@@ -121,6 +121,28 @@ while (condition) {
 
 Condition is evaluated before each iteration. Loop runs zero or more times.
 
+### foreach
+
+```melt
+foreach (value in arrayExpr) {
+    // value = each element
+}
+```
+
+```melt
+foreach (index, value in arrayExpr) {
+    // index = 0..n-1, value = element
+}
+```
+
+```melt
+foreach (key, value in objectExpr) {
+    // key = property name, value = property value
+}
+```
+
+`foreach` works with arrays and objects. It throws a runtime error for other types.
+
 ### try / catch / throw
 
 ```melt

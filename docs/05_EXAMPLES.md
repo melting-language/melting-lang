@@ -37,8 +37,12 @@ All examples are under **`examples/`**. Run them from the **project root** with:
 |------|-------------|
 | **file_io.melt** | `readFile(path)`, `writeFile(path, content)`. |
 | **array_demo.melt** | Array literals, indexing, `arrayPush`, `arrayLength`, etc. |
+| **foreach_demo.melt** | `foreach` with arrays, objects, and SQL rows (`sqliteFetchAll`). |
 | **json_demo.melt** | `jsonEncode(value)`, `jsonDecode(str)`. |
 | **encryption_demo.melt** | `base64Encode`, `base64Decode`, `xorCipher(str, key)`. |
+| **image_optimize_demo.melt** | Uses `image_optimize` extension built-ins (`optimizeImage`, `resizeImage`). |
+| **os_extension_demo.melt** | Uses `os` extension built-ins (`osName`, `osArch`, `osPwd`, `osGetEnv`, `osExec`). |
+| **headless_browser_demo.melt** | Uses `headless_browser` extension built-ins (`browserScreenshot`, `browserDumpDom`, `browserPdf`). |
 
 ---
 
@@ -47,6 +51,7 @@ All examples are under **`examples/`**. Run them from the **project root** with:
 | File | Description |
 |------|-------------|
 | **server.melt** | Simple HTTP server: routes `/` and `/api/hello`, uses `getRequestPath`, `getRequestMethod`, `setResponseBody`, `setResponseStatus`, `setHandler`, `listen(8080)`. |
+| **upload_server.melt** | HTTP file upload server (`multipart/form-data`) using `uploadSave`, `uploadFileName`. |
 
 Run then open http://localhost:8080/
 
@@ -59,6 +64,16 @@ Run then open http://localhost:8080/
 | **mysql_example.melt** | Connects with `mysqlConnect`, runs `mysqlQuery("SELECT ...")`, reads rows with `mysqlFetchRow()`, then `mysqlClose()`. |
 
 Requires **`make with-mysql`** and a running MySQL instance; edit host, user, password, database in the script.
+
+---
+
+## SQLite (optional)
+
+| File | Description |
+|------|-------------|
+| **sqlite_example.melt** | Opens a SQLite DB file, creates a table, inserts rows, runs `SELECT`, reads with `sqliteFetchAll()` + `foreach`, then closes. |
+
+Requires **`make with-sqlite`**.
 
 ---
 

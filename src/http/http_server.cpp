@@ -3,6 +3,7 @@
 #include <cstring>
 #include <sstream>
 #include <stdexcept>
+#include <cctype>
 
 #if defined(_WIN32) || defined(_WIN64)
 #include <winsock2.h>
@@ -44,9 +45,11 @@ static void parseRequest(const std::string& raw, std::string& method, std::strin
         if (bodyStart <= raw.size()) {
             body = raw.substr(bodyStart);
             std::string headers = raw.substr(0, headEnd);
-            size_t cl = headers.find("Content-Length:");
+            std::string headersLower = headers;
+            for (char& ch : headersLower) ch = (char)std::tolower((unsigned char)ch);
+            size_t cl = headersLower.find("content-length:");
             if (cl != std::string::npos) {
-                cl = headers.find_first_not_of(" \t", cl + 14);
+                cl = headers.find_first_not_of(" \t", cl + 15);
                 if (cl != std::string::npos) {
                     size_t end = cl;
                     while (end < headers.size() && (unsigned char)headers[end] >= '0' && (unsigned char)headers[end] <= '9') ++end;
@@ -99,13 +102,41 @@ void runHttpServer(Interpreter* interp, int port) {
         if (clientFd == INVALID_SOCKET) continue;
         std::string request;
         char buf[4096];
+        size_t expectedBodyLen = 0;
+        bool haveHeaders = false;
+        size_t bodyStart = std::string::npos;
         for (;;) {
-            int n = recv(clientFd, buf, sizeof(buf) - 1, 0);
+            int n = recv(clientFd, buf, sizeof(buf), 0);
             if (n <= 0) break;
-            buf[n] = '\0';
-            request += buf;
-            if (request.find("\r\n\r\n") != std::string::npos || request.find("\n\n") != std::string::npos)
-                break;
+            request.append(buf, (size_t)n);
+
+            if (!haveHeaders) {
+                size_t headEnd = request.find("\r\n\r\n");
+                size_t sepLen = 4;
+                if (headEnd == std::string::npos) {
+                    headEnd = request.find("\n\n");
+                    sepLen = 2;
+                }
+                if (headEnd != std::string::npos) {
+                    haveHeaders = true;
+                    bodyStart = headEnd + sepLen;
+                    std::string head = request.substr(0, headEnd);
+                    std::string headLower = head;
+                    for (char& ch : headLower) ch = (char)std::tolower((unsigned char)ch);
+                    size_t cl = headLower.find("content-length:");
+                    if (cl != std::string::npos) {
+                        cl = headLower.find_first_not_of(" \t", cl + 15);
+                        if (cl != std::string::npos) {
+                            size_t end = cl;
+                            while (end < headLower.size() && headLower[end] >= '0' && headLower[end] <= '9') ++end;
+                            if (end > cl) expectedBodyLen = (size_t)std::stoul(headLower.substr(cl, end - cl));
+                        }
+                    }
+                    if (request.size() >= bodyStart + expectedBodyLen) break;
+                }
+            } else if (bodyStart != std::string::npos) {
+                if (request.size() >= bodyStart + expectedBodyLen) break;
+            }
         }
         std::string method, path, body, headers;
         parseRequest(request, method, path, body, headers);

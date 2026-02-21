@@ -4,6 +4,7 @@
 #if !defined(MELT_EMBEDDED)
 #include "http_server.hpp"
 #include "mysql_builtin.hpp"
+#include "sqlite_builtin.hpp"
 #endif
 #if defined(USE_GUI) && !defined(MELT_EMBEDDED)
 #include "gui_window.hpp"
@@ -17,6 +18,7 @@
 #include <cmath>
 #include <cstdint>
 #include <cstdio>
+#include <cstdlib>
 #include <random>
 
 struct ReturnException : std::exception {
@@ -277,6 +279,158 @@ static std::string trim(const std::string& s) {
     if (start == std::string::npos) return "";
     size_t end = s.find_last_not_of(" \t\r\n");
     return s.substr(start, end == std::string::npos ? std::string::npos : end - start + 1);
+}
+
+static std::string toLowerAscii(const std::string& s) {
+    std::string out = s;
+    for (char& c : out) c = (char)std::tolower((unsigned char)c);
+    return out;
+}
+
+static std::string getHeaderValueCaseInsensitive(const std::string& headers, const std::string& name) {
+    std::string target = toLowerAscii(name);
+    size_t pos = 0;
+    while (pos < headers.size()) {
+        size_t lineEnd = headers.find("\r\n", pos);
+        if (lineEnd == std::string::npos) lineEnd = headers.find('\n', pos);
+        if (lineEnd == std::string::npos) lineEnd = headers.size();
+        std::string line = headers.substr(pos, lineEnd - pos);
+        size_t colon = line.find(':');
+        if (colon != std::string::npos) {
+            std::string hName = trim(line.substr(0, colon));
+            if (toLowerAscii(hName) == target)
+                return trim(line.substr(colon + 1));
+        }
+        if (lineEnd >= headers.size()) break;
+        if (lineEnd + 1 < headers.size() && headers[lineEnd] == '\r' && headers[lineEnd + 1] == '\n') pos = lineEnd + 2;
+        else pos = lineEnd + 1;
+    }
+    return "";
+}
+
+static std::string getContentDispositionParam(const std::string& line, const std::string& key) {
+    std::string needle = key + "=\"";
+    size_t p = line.find(needle);
+    if (p == std::string::npos) return "";
+    p += needle.size();
+    size_t e = line.find('"', p);
+    if (e == std::string::npos) return "";
+    return line.substr(p, e - p);
+}
+
+static bool extractMultipartFilePart(
+    const std::string& headers,
+    const std::string& body,
+    const std::string& fieldName,
+    std::string& outFilename,
+    std::string& outData
+) {
+    std::string ct = getHeaderValueCaseInsensitive(headers, "Content-Type");
+    std::string ctLower = toLowerAscii(ct);
+    if (ctLower.find("multipart/form-data") == std::string::npos) return false;
+    size_t b = ctLower.find("boundary=");
+    if (b == std::string::npos) return false;
+    std::string boundary = trim(ct.substr(b + 9));
+    if (boundary.empty()) return false;
+    if (boundary.size() >= 2 && boundary.front() == '"' && boundary.back() == '"')
+        boundary = boundary.substr(1, boundary.size() - 2);
+    if (boundary.empty()) return false;
+
+    std::string delimiter = "--" + boundary;
+    size_t pos = 0;
+    while (true) {
+        size_t part = body.find(delimiter, pos);
+        if (part == std::string::npos) return false;
+        part += delimiter.size();
+
+        if (part + 1 < body.size() && body[part] == '-' && body[part + 1] == '-')
+            return false; // closing boundary
+        if (part + 1 < body.size() && body[part] == '\r' && body[part + 1] == '\n') part += 2;
+        else if (part < body.size() && body[part] == '\n') part += 1;
+
+        size_t headEnd = body.find("\r\n\r\n", part);
+        size_t sepLen = 4;
+        if (headEnd == std::string::npos) {
+            headEnd = body.find("\n\n", part);
+            sepLen = 2;
+        }
+        if (headEnd == std::string::npos) return false;
+
+        std::string partHeaders = body.substr(part, headEnd - part);
+        size_t dataStart = headEnd + sepLen;
+        size_t nextBoundary = body.find(delimiter, dataStart);
+        if (nextBoundary == std::string::npos) return false;
+
+        size_t dataEnd = nextBoundary;
+        if (dataEnd >= 2 && body[dataEnd - 2] == '\r' && body[dataEnd - 1] == '\n') dataEnd -= 2;
+        else if (dataEnd >= 1 && body[dataEnd - 1] == '\n') dataEnd -= 1;
+
+        std::string contentDisposition;
+        {
+            size_t hpos = 0;
+            while (hpos < partHeaders.size()) {
+                size_t lend = partHeaders.find("\r\n", hpos);
+                if (lend == std::string::npos) lend = partHeaders.find('\n', hpos);
+                if (lend == std::string::npos) lend = partHeaders.size();
+                std::string line = partHeaders.substr(hpos, lend - hpos);
+                if (toLowerAscii(line).find("content-disposition:") == 0) {
+                    contentDisposition = line;
+                    break;
+                }
+                if (lend >= partHeaders.size()) break;
+                if (lend + 1 < partHeaders.size() && partHeaders[lend] == '\r' && partHeaders[lend + 1] == '\n') hpos = lend + 2;
+                else hpos = lend + 1;
+            }
+        }
+
+        std::string partName = getContentDispositionParam(contentDisposition, "name");
+        std::string filename = getContentDispositionParam(contentDisposition, "filename");
+        if (partName == fieldName && !filename.empty()) {
+            outFilename = filename;
+            outData = body.substr(dataStart, dataEnd - dataStart);
+            return true;
+        }
+
+        pos = nextBoundary;
+    }
+}
+
+static std::string shellQuote(const std::string& s) {
+#if defined(_WIN32)
+    std::string out = "\"";
+    for (char c : s) {
+        if (c == '"' || c == '\\') out.push_back('\\');
+        out.push_back(c);
+    }
+    out.push_back('"');
+    return out;
+#else
+    std::string out = "'";
+    for (char c : s) {
+        if (c == '\'') out += "'\\''";
+        else out.push_back(c);
+    }
+    out.push_back('\'');
+    return out;
+#endif
+}
+
+static std::string runCommandCapture(const std::string& cmd) {
+#if defined(_WIN32)
+    FILE* pipe = _popen(cmd.c_str(), "r");
+#else
+    FILE* pipe = popen(cmd.c_str(), "r");
+#endif
+    if (!pipe) return "";
+    std::string out;
+    char buf[4096];
+    while (fgets(buf, sizeof(buf), pipe)) out += buf;
+#if defined(_WIN32)
+    _pclose(pipe);
+#else
+    pclose(pipe);
+#endif
+    return out;
 }
 
 void Interpreter::setBinDir(const std::string& binDir) {
@@ -614,6 +768,39 @@ void Interpreter::registerBuiltins() {
         i->addResponseHeader(std::get<std::string>(args[0]), std::get<std::string>(args[1]));
         return false;
     });
+    variables_["uploadFileName"] = reg([](Interpreter* i, std::vector<Value> args) -> Value {
+        if (args.empty() || !std::holds_alternative<std::string>(args[0])) return std::string("");
+        std::string fieldName = std::get<std::string>(args[0]);
+        std::string filename;
+        std::string data;
+        bool ok = extractMultipartFilePart(i->getCurrentRequestHeaders(), i->getCurrentRequestBody(), fieldName, filename, data);
+        if (!ok) return std::string("");
+        return filename;
+    });
+    variables_["uploadFileData"] = reg([](Interpreter* i, std::vector<Value> args) -> Value {
+        if (args.empty() || !std::holds_alternative<std::string>(args[0])) return std::string("");
+        std::string fieldName = std::get<std::string>(args[0]);
+        std::string filename;
+        std::string data;
+        bool ok = extractMultipartFilePart(i->getCurrentRequestHeaders(), i->getCurrentRequestBody(), fieldName, filename, data);
+        if (!ok) return std::string("");
+        return data;
+    });
+    variables_["uploadSave"] = reg([](Interpreter* i, std::vector<Value> args) -> Value {
+        if (args.size() < 2 || !std::holds_alternative<std::string>(args[0]) || !std::holds_alternative<std::string>(args[1]))
+            return false;
+        std::string fieldName = std::get<std::string>(args[0]);
+        std::string path = std::get<std::string>(args[1]);
+        std::string filename;
+        std::string data;
+        bool ok = extractMultipartFilePart(i->getCurrentRequestHeaders(), i->getCurrentRequestBody(), fieldName, filename, data);
+        if (!ok) return false;
+        std::string full = i->getResolvedPath(path);
+        std::ofstream f(full, std::ios::binary);
+        if (!f) return false;
+        f.write(data.data(), (std::streamsize)data.size());
+        return true;
+    });
     variables_["servePublic"] = reg([](Interpreter* i, std::vector<Value> args) -> Value {
         if (args.empty() || !std::holds_alternative<std::string>(args[0])) return false;
         return i->servePublic(std::get<std::string>(args[0]));
@@ -643,6 +830,9 @@ void Interpreter::registerBuiltins() {
         variables_["setResponseContentType"] = reg(httpStub);
         variables_["getRequestHeader"] = reg(httpStub);
         variables_["setResponseHeader"] = reg(httpStub);
+        variables_["uploadFileName"] = reg(httpStub);
+        variables_["uploadFileData"] = reg(httpStub);
+        variables_["uploadSave"] = reg(httpStub);
         variables_["servePublic"] = reg(httpStub);
         variables_["setHandler"] = reg(httpStub);
         variables_["listen"] = reg(httpStub);
@@ -705,6 +895,80 @@ void Interpreter::registerBuiltins() {
             std::cout << i->getMcpResponse() << "\n" << std::flush;
         }
         return false;
+    });
+    variables_["httpRequest"] = reg([](Interpreter* i, std::vector<Value> args) -> Value {
+        if (args.size() < 2 || !std::holds_alternative<std::string>(args[0]) || !std::holds_alternative<std::string>(args[1])) {
+            auto err = std::make_shared<MeltObject>();
+            err->klass = i->getJsonObjectClass();
+            err->fields["ok"] = false;
+            err->fields["status"] = 0.0;
+            err->fields["body"] = std::string("");
+            err->fields["error"] = std::string("httpRequest requires (method, url [, body [, headers]])");
+            return err;
+        }
+        std::string method = std::get<std::string>(args[0]);
+        std::string url = std::get<std::string>(args[1]);
+        std::string body = (args.size() > 2 && std::holds_alternative<std::string>(args[2])) ? std::get<std::string>(args[2]) : "";
+        std::string headers = (args.size() > 3 && std::holds_alternative<std::string>(args[3])) ? std::get<std::string>(args[3]) : "";
+
+        std::string cmd = "curl -sS -L -X " + shellQuote(method) + " " + shellQuote(url);
+        if (!body.empty()) cmd += " --data " + shellQuote(body);
+        if (!headers.empty()) {
+            std::istringstream hs(headers);
+            std::string line;
+            while (std::getline(hs, line)) {
+                line = trim(line);
+                if (line.empty()) continue;
+                cmd += " -H " + shellQuote(line);
+            }
+        }
+        cmd += " -w '\\n__MELT_HTTP_STATUS__:%{http_code}'";
+        cmd += " 2>/dev/null";
+
+        std::string raw = runCommandCapture(cmd);
+        std::string marker = "\n__MELT_HTTP_STATUS__:";
+        size_t pos = raw.rfind(marker);
+
+        auto res = std::make_shared<MeltObject>();
+        res->klass = i->getJsonObjectClass();
+        if (pos == std::string::npos) {
+            res->fields["ok"] = false;
+            res->fields["status"] = 0.0;
+            res->fields["body"] = raw;
+            res->fields["error"] = std::string("curl failed or response parse error");
+            return res;
+        }
+
+        std::string bodyOut = raw.substr(0, pos);
+        std::string statusStr = trim(raw.substr(pos + marker.size()));
+        int status = 0;
+        try { status = std::stoi(statusStr); } catch (...) { status = 0; }
+
+        res->fields["ok"] = (status >= 200 && status < 300);
+        res->fields["status"] = (double)status;
+        res->fields["body"] = bodyOut;
+        res->fields["error"] = std::string("");
+        return res;
+    });
+    variables_["httpGet"] = reg([](Interpreter* i, std::vector<Value> args) -> Value {
+        if (args.empty() || !std::holds_alternative<std::string>(args[0])) return false;
+        std::vector<Value> callArgs;
+        callArgs.push_back(std::string("GET"));
+        callArgs.push_back(std::get<std::string>(args[0]));
+        if (args.size() > 1) callArgs.push_back(args[1]);
+        if (args.size() > 2) callArgs.push_back(args[2]);
+        auto fn = std::get<NativeFunc>(i->variables_["httpRequest"]);
+        return i->nativeFunctions_[fn.index](i, callArgs);
+    });
+    variables_["httpPost"] = reg([](Interpreter* i, std::vector<Value> args) -> Value {
+        if (args.empty() || !std::holds_alternative<std::string>(args[0])) return false;
+        std::vector<Value> callArgs;
+        callArgs.push_back(std::string("POST"));
+        callArgs.push_back(std::get<std::string>(args[0]));
+        if (args.size() > 1) callArgs.push_back(args[1]);
+        if (args.size() > 2) callArgs.push_back(args[2]);
+        auto fn = std::get<NativeFunc>(i->variables_["httpRequest"]);
+        return i->nativeFunctions_[fn.index](i, callArgs);
     });
     variables_["readFile"] = reg([](Interpreter* i, std::vector<Value> args) -> Value {
         if (args.empty() || !std::holds_alternative<std::string>(args[0])) return std::string("");
@@ -1176,6 +1440,7 @@ void Interpreter::registerBuiltins() {
     });
 #if !defined(MELT_EMBEDDED)
     registerMysqlBuiltins(this);
+    registerSqliteBuiltins(this);
 #endif
 }
 
@@ -1205,6 +1470,7 @@ void Interpreter::execute(Stmt& stmt) {
     if (auto p = dynamic_cast<BlockStmt*>(&stmt)) { executeBlock(*p); return; }
     if (auto p = dynamic_cast<IfStmt*>(&stmt)) { executeIf(*p); return; }
     if (auto p = dynamic_cast<ForStmt*>(&stmt)) { executeFor(*p); return; }
+    if (auto p = dynamic_cast<ForeachStmt*>(&stmt)) { executeForeach(*p); return; }
     if (auto p = dynamic_cast<WhileStmt*>(&stmt)) { executeWhile(*p); return; }
     if (auto p = dynamic_cast<ReturnStmt*>(&stmt)) { executeReturn(*p); return; }
     if (auto p = dynamic_cast<TryCatchStmt*>(&stmt)) { executeTryCatch(*p); return; }
@@ -1324,6 +1590,40 @@ void Interpreter::executeFor(const ForStmt& stmt) {
         if (stmt.update)
             evaluate(*stmt.update);
     }
+}
+
+void Interpreter::executeForeach(const ForeachStmt& stmt) {
+    Value iterable = evaluate(*stmt.iterable);
+
+    if (auto* arr = std::get_if<std::shared_ptr<MeltArray>>(&iterable)) {
+        if (!arr || !*arr) return;
+        for (size_t i = 0; i < (*arr)->data.size(); ++i) {
+            if (stmt.hasSecondVar) {
+                variables_[stmt.firstVar] = (double)i;
+                variables_[stmt.secondVar] = (*arr)->data[i];
+            } else {
+                variables_[stmt.firstVar] = (*arr)->data[i];
+            }
+            execute(*stmt.body);
+        }
+        return;
+    }
+
+    if (auto* obj = std::get_if<std::shared_ptr<MeltObject>>(&iterable)) {
+        if (!obj || !*obj) return;
+        for (const auto& kv : (*obj)->fields) {
+            if (stmt.hasSecondVar) {
+                variables_[stmt.firstVar] = kv.first;
+                variables_[stmt.secondVar] = kv.second;
+            } else {
+                variables_[stmt.firstVar] = kv.second;
+            }
+            execute(*stmt.body);
+        }
+        return;
+    }
+
+    throw std::runtime_error("foreach supports array or object");
 }
 
 void Interpreter::executeWhile(const WhileStmt& stmt) {

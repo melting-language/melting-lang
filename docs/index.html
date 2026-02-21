@@ -194,6 +194,7 @@
           <a href="#builtins-http">HTTP server</a>
           <a href="#builtins-stdio-mcp">Stdio / MCP</a>
           <a href="#builtins-mysql">MySQL</a>
+          <a href="#builtins-sqlite">SQLite</a>
         </div>
         <a href="#http-mvc">HTTP Server & MVC</a>
         <a href="#official-website">Official Website</a>
@@ -314,8 +315,11 @@ print name;</code></pre>
         <pre><code>if (condition) { }
 if (condition) { } else { }
 for (init; condition; update) { }   // init: let i = 0 or expr; condition and update optional
+foreach (value in arr) { }
+foreach (i, value in arr) { }
+foreach (key, value in obj) { }
 while (condition) { }</code></pre>
-        <p><code>for ( init ; condition ; update ) body</code> — <code>init</code> runs once (optional: <code>let i = 0</code> or any expression followed by <code>;</code>). <code>condition</code> is checked each iteration (optional, empty means true). <code>update</code> runs after each body (optional; can be assignment, e.g. <code>i = i + 1</code>).</p>
+        <p><code>for ( init ; condition ; update ) body</code> — <code>init</code> runs once (optional: <code>let i = 0</code> or any expression followed by <code>;</code>). <code>condition</code> is checked each iteration (optional, empty means true). <code>update</code> runs after each body (optional; can be assignment, e.g. <code>i = i + 1</code>). <code>foreach</code> iterates arrays and objects; with one variable it binds value, with two it binds index/key and value.</p>
         <h3 id="lang-try-catch">Try / catch / throw</h3>
         <pre><code>try {
     // statements that may throw
@@ -342,7 +346,7 @@ obj.getX();  // returns 1</code></pre>
         <h3 id="lang-truthiness">Truthiness</h3>
         <p>Falsy: <code>false</code>, <code>0</code>, <code>""</code>, empty array, nothing. Everything else is truthy.</p>
         <h3 id="lang-keywords">Keywords &amp; literals</h3>
-        <p><code>let</code> <code>if</code> <code>else</code> <code>for</code> <code>while</code> <code>print</code> <code>class</code> <code>method</code> <code>this</code> <code>import</code> <code>return</code> <code>try</code> <code>catch</code> <code>throw</code>. Booleans: <code>true</code> <code>false</code>. Do not use <code>method</code> as a variable name.</p>
+        <p><code>let</code> <code>if</code> <code>else</code> <code>for</code> <code>foreach</code> <code>in</code> <code>while</code> <code>print</code> <code>class</code> <code>method</code> <code>this</code> <code>import</code> <code>return</code> <code>try</code> <code>catch</code> <code>throw</code>. Booleans: <code>true</code> <code>false</code>. Do not use <code>method</code> as a variable name.</p>
       </section>
 
       <section id="builtins">
@@ -463,7 +467,18 @@ obj.getX();  // returns 1</code></pre>
           <tr><td><code>mysqlConnect(host, user, password, database)</code></td><td>Connect. Returns truthy/falsy.</td></tr>
           <tr><td><code>mysqlQuery(sql)</code></td><td>Execute SQL.</td></tr>
           <tr><td><code>mysqlFetchRow()</code></td><td>Next row as string; columns separated by <code>chr(1)</code>. Split with <code>splitString(row, chr(1))</code>. Returns <code>""</code> when no more rows.</td></tr>
+          <tr><td><code>mysqlFetchAll()</code></td><td>All remaining rows as array of rows, e.g. <code>[["1","Alice"],["2","Bob"]]</code>.</td></tr>
           <tr><td><code>mysqlClose()</code></td><td>Close connection.</td></tr>
+        </table>
+        <h3 id="builtins-sqlite">SQLite (optional, <code>make with-sqlite</code>)</h3>
+        <table>
+          <tr><th>Function</th><th>Description</th></tr>
+          <tr><td><code>sqliteOpen(path)</code></td><td>Open/create SQLite database file. Returns truthy/falsy.</td></tr>
+          <tr><td><code>sqliteExec(sql)</code></td><td>Execute SQL (CREATE/INSERT/UPDATE/DELETE).</td></tr>
+          <tr><td><code>sqliteQuery(sql)</code></td><td>Prepare SELECT-style query for fetching rows.</td></tr>
+          <tr><td><code>sqliteFetchRow()</code></td><td>Next row as string; columns separated by <code>chr(1)</code>. Returns <code>""</code> when done.</td></tr>
+          <tr><td><code>sqliteFetchAll()</code></td><td>All remaining rows as array of rows, e.g. <code>[["1","Alice"],["2","Bob"]]</code>.</td></tr>
+          <tr><td><code>sqliteClose()</code></td><td>Close database and finalize active query.</td></tr>
         </table>
       </section>
 
@@ -662,7 +677,7 @@ print myOtherFunc("hello");</code></pre>
         <p>The embedded build (<code>make embedded</code>) produces a smaller binary, <strong>bin/melt-embedded</strong>, by excluding optional subsystems that are not needed on resource-constrained or embedded-style targets:</p>
         <ul>
           <li><strong>HTTP server</strong> — no <code>listen()</code>, <code>setHandler()</code>, <code>getRequestPath()</code>, <code>servePublic()</code>, etc. Scripts that call these get a clear runtime error: &quot;Melt embedded build: HTTP server not available&quot;.</li>
-          <li><strong>MySQL</strong> — no <code>mysqlConnect</code>, <code>mysqlQuery</code>, <code>mysqlFetchRow</code>, <code>mysqlClose</code>. Those built-ins are not registered (calling them yields &quot;unknown variable&quot;).</li>
+          <li><strong>MySQL / SQLite</strong> — no <code>mysqlConnect</code>, <code>mysqlQuery</code>, <code>mysqlFetchRow</code>, <code>mysqlFetchAll</code>, <code>mysqlClose</code>, <code>sqliteOpen</code>, <code>sqliteExec</code>, <code>sqliteQuery</code>, <code>sqliteFetchRow</code>, <code>sqliteFetchAll</code>, <code>sqliteClose</code>. Those built-ins are not registered (calling them yields &quot;unknown variable&quot;).</li>
           <li><strong>GUI (SDL2)</strong> — no <code>imagePreview()</code>. The GUI window is not linked. Scripts that call it get a runtime error.</li>
         </ul>
         <p>The embedded binary still includes the <strong>core language</strong> (variables, types, control flow, classes, methods, <code>import</code>, <code>try</code>/<code>catch</code>/<code>throw</code>) and built-ins such as <code>print</code>, <code>readFile</code>, <code>writeFile</code>, arrays, JSON, base64, xorCipher, vectors, and the <strong>module loader</strong> (loadable extensions). So you can script logic, file I/O, and optional native extensions (e.g. GPIO or UART) without pulling in HTTP, MySQL, or SDL2.</p>
@@ -737,10 +752,12 @@ print myOtherFunc("hello");</code></pre>
           <tr><td>file_io.melt</td><td>readFile, writeFile.</td></tr>
           <tr><td>embedded_system/main.melt</td><td>Sample embedded-style loop (sensor–logic–actuator); use with <code>./bin/melt-embedded</code>.</td></tr>
           <tr><td>array_demo.melt</td><td>Arrays and built-ins.</td></tr>
+          <tr><td>foreach_demo.melt</td><td><code>foreach</code> over arrays, objects, and SQL row arrays.</td></tr>
           <tr><td>json_demo.melt</td><td>jsonEncode, jsonDecode.</td></tr>
           <tr><td>encryption_demo.melt</td><td>Base64, xorCipher.</td></tr>
           <tr><td>server.melt</td><td>HTTP server.</td></tr>
           <tr><td>mysql_example.melt</td><td>MySQL (requires with-mysql).</td></tr>
+          <tr><td>sqlite_example.melt</td><td>SQLite (requires with-sqlite).</td></tr>
           <tr><td>web_project_mvc/main.melt</td><td>Full MVC app.</td></tr>
           <tr><td>official_website_using_melt/main.melt</td><td>Official Melt website (MVC): Home, Documentation, About, Resource, Support, Blog. Port 4000.</td></tr>
         </table>

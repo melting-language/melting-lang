@@ -114,6 +114,10 @@ public:
     void setMysqlConn(void* p) { mysql_conn_ = p; }
     void* getMysqlRes() const { return mysql_res_; }
     void setMysqlRes(void* p) { mysql_res_ = p; }
+    void* getSqliteDb() const { return sqlite_db_; }
+    void setSqliteDb(void* p) { sqlite_db_ = p; }
+    void* getSqliteStmt() const { return sqlite_stmt_; }
+    void setSqliteStmt(void* p) { sqlite_stmt_ = p; }
 
     std::shared_ptr<MeltClass> getJsonObjectClass();
 
@@ -131,6 +135,8 @@ private:
 
     void* mysql_conn_ = nullptr;
     void* mysql_res_ = nullptr;
+    void* sqlite_db_ = nullptr;
+    void* sqlite_stmt_ = nullptr;
 
     std::shared_ptr<MeltClass> jsonObjectClass_;
 
@@ -177,6 +183,7 @@ private:
     void executeBlock(const BlockStmt& stmt);
     void executeIf(const IfStmt& stmt);
     void executeFor(const ForStmt& stmt);
+    void executeForeach(const ForeachStmt& stmt);
     void executeWhile(const WhileStmt& stmt);
     void executeReturn(const ReturnStmt& stmt);
     void executeTryCatch(const TryCatchStmt& stmt);

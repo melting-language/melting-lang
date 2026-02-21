@@ -18,6 +18,15 @@ make with-mysql
 
 You need the MySQL client library (e.g. `libmysqlclient-dev` on Ubuntu, `mysql` on Homebrew).
 
+To build with **SQLite** support (optional):
+
+```bash
+make with-sqlite
+```
+
+This enables `sqliteOpen/sqliteExec/sqliteQuery/sqliteFetchRow/sqliteClose` built-ins.  
+You need the SQLite development library (usually `sqlite3` / `libsqlite3-dev`).
+
 For a **smaller binary** without HTTP server, MySQL, or GUI (e.g. for embedded targets), use **`make embedded`**. This produces **`bin/melt-embedded`**. Scripts that call `listen()`, MySQL built-ins, or `imagePreview()` will get a clear runtime error.
 
 ## Install the binary (optional)
