@@ -645,6 +645,66 @@ void Interpreter::interpret(const std::vector<std::unique_ptr<Stmt>>& statements
     }
 }
 
+static std::string parseCookieValue(const std::string& headers, const std::string& cookieName) {
+    std::string lowerHeaders = headers;
+    for (auto& c : lowerHeaders) c = (char)std::tolower((unsigned char)c);
+    size_t pos = lowerHeaders.find("cookie:");
+    if (pos == std::string::npos) return "";
+    size_t lineEnd = headers.find("\r\n", pos);
+    if (lineEnd == std::string::npos) lineEnd = headers.find('\n', pos);
+    if (lineEnd == std::string::npos) lineEnd = headers.size();
+    std::string line = headers.substr(pos, lineEnd - pos);
+    size_t colon = line.find(':');
+    if (colon == std::string::npos) return "";
+    std::string cookieStr = line.substr(colon + 1);
+    while (!cookieStr.empty() && (cookieStr.front() == ' ' || cookieStr.front() == '\t')) cookieStr.erase(0, 1);
+    pos = 0;
+    while (pos < cookieStr.size()) {
+        size_t semi = cookieStr.find(';', pos);
+        if (semi == std::string::npos) semi = cookieStr.size();
+        std::string part = cookieStr.substr(pos, semi - pos);
+        size_t eq = part.find('=');
+        if (eq != std::string::npos) {
+            std::string name = part.substr(0, eq);
+            while (!name.empty() && (name.back() == ' ' || name.back() == '\t')) name.pop_back();
+            while (!name.empty() && (name.front() == ' ' || name.front() == '\t')) name.erase(0, 1);
+            if (name == cookieName) {
+                std::string val = part.substr(eq + 1);
+                while (!val.empty() && (val.front() == ' ' || val.front() == '\t')) val.erase(0, 1);
+                if (val.size() >= 2 && val.front() == '"' && val.back() == '"') val = val.substr(1, val.size() - 2);
+                return val;
+            }
+        }
+        pos = semi + 1;
+        while (pos < cookieStr.size() && (cookieStr[pos] == ' ' || cookieStr[pos] == '\t')) ++pos;
+    }
+    return "";
+}
+
+static std::string generateSessionId() {
+    static const char hex[] = "0123456789abcdef";
+    std::random_device rd;
+    std::mt19937 gen(rd());
+    std::uniform_int_distribution<> dis(0, 15);
+    std::string id;
+    for (int i = 0; i < 32; ++i) id += hex[dis(gen)];
+    return id;
+}
+
+void Interpreter::ensureSession() {
+    if (!currentSessionId_.empty()) return;
+    const std::string& headers = currentRequestHeaders_;
+    std::string sid = parseCookieValue(headers, "melt_sid");
+    if (!sid.empty()) {
+        currentSessionId_ = sid;
+        sessionStore_[currentSessionId_];  // ensure bucket exists
+        return;
+    }
+    currentSessionId_ = generateSessionId();
+    sessionStore_[currentSessionId_] = {};
+    addResponseHeader("Set-Cookie", "melt_sid=" + currentSessionId_ + "; Path=/; Max-Age=604800; HttpOnly");
+}
+
 void Interpreter::setRequestData(const std::string& path, const std::string& method, const std::string& body, const std::string& headers) {
     currentRequestPath_ = path;
     currentRequestMethod_ = method;
@@ -654,6 +714,7 @@ void Interpreter::setRequestData(const std::string& path, const std::string& met
     responseStatus_ = 200;
     responseContentType_ = "text/html; charset=utf-8";
     responseHeaders_.clear();
+    currentSessionId_.clear();
 }
 
 void Interpreter::callHandler() {
@@ -768,6 +829,57 @@ void Interpreter::registerBuiltins() {
         i->addResponseHeader(std::get<std::string>(args[0]), std::get<std::string>(args[1]));
         return false;
     });
+    variables_["getCookie"] = reg([](Interpreter* i, std::vector<Value> args) -> Value {
+        if (args.empty() || !std::holds_alternative<std::string>(args[0])) return std::string("");
+        std::string name = std::get<std::string>(args[0]);
+        return Value(parseCookieValue(i->getCurrentRequestHeaders(), name));
+    });
+    variables_["setCookie"] = reg([](Interpreter* i, std::vector<Value> args) -> Value {
+        if (args.size() < 2 || !std::holds_alternative<std::string>(args[0]) || !std::holds_alternative<std::string>(args[1]))
+            return false;
+        std::string name = std::get<std::string>(args[0]);
+        std::string value = std::get<std::string>(args[1]);
+        std::string path = "/";
+        double maxAge = -1;
+        bool httpOnly = true;
+        if (args.size() > 2 && std::holds_alternative<std::string>(args[2])) path = std::get<std::string>(args[2]);
+        if (args.size() > 3 && std::holds_alternative<double>(args[3])) maxAge = std::get<double>(args[3]);
+        if (args.size() > 4 && std::holds_alternative<double>(args[4])) httpOnly = (std::get<double>(args[4]) != 0);
+        std::string h = name + "=" + value + "; Path=" + path;
+        if (maxAge >= 0) h += "; Max-Age=" + std::to_string((int)maxAge);
+        if (httpOnly) h += "; HttpOnly";
+        i->addResponseHeader("Set-Cookie", h);
+        return false;
+    });
+    variables_["sessionGet"] = reg([](Interpreter* i, std::vector<Value> args) -> Value {
+        if (args.empty() || !std::holds_alternative<std::string>(args[0])) return std::string("");
+        i->ensureSession();
+        const std::string& key = std::get<std::string>(args[0]);
+        auto it = i->sessionStore_.find(i->currentSessionId_);
+        if (it == i->sessionStore_.end()) return std::string("");
+        auto kit = it->second.find(key);
+        if (kit == it->second.end()) return std::string("");
+        return Value(kit->second);
+    });
+    variables_["sessionSet"] = reg([](Interpreter* i, std::vector<Value> args) -> Value {
+        if (args.size() < 2 || !std::holds_alternative<std::string>(args[0])) return false;
+        i->ensureSession();
+        std::string key = std::get<std::string>(args[0]);
+        std::string val;
+        if (std::holds_alternative<std::string>(args[1])) val = std::get<std::string>(args[1]);
+        else if (std::holds_alternative<double>(args[1])) val = std::to_string(std::get<double>(args[1]));
+        else if (std::holds_alternative<bool>(args[1])) val = std::get<bool>(args[1]) ? "true" : "false";
+        i->sessionStore_[i->currentSessionId_][key] = val;
+        return false;
+    });
+    variables_["sessionDestroy"] = reg([](Interpreter* i, std::vector<Value> args) -> Value {
+        (void)args;
+        if (i->currentSessionId_.empty()) return false;
+        i->sessionStore_.erase(i->currentSessionId_);
+        i->addResponseHeader("Set-Cookie", "melt_sid=; Path=/; Expires=Thu, 01 Jan 1970 00:00:00 GMT");
+        i->currentSessionId_.clear();
+        return false;
+    });
     variables_["uploadFileName"] = reg([](Interpreter* i, std::vector<Value> args) -> Value {
         if (args.empty() || !std::holds_alternative<std::string>(args[0])) return std::string("");
         std::string fieldName = std::get<std::string>(args[0]);
@@ -830,6 +942,11 @@ void Interpreter::registerBuiltins() {
         variables_["setResponseContentType"] = reg(httpStub);
         variables_["getRequestHeader"] = reg(httpStub);
         variables_["setResponseHeader"] = reg(httpStub);
+        variables_["getCookie"] = reg(httpStub);
+        variables_["setCookie"] = reg(httpStub);
+        variables_["sessionGet"] = reg(httpStub);
+        variables_["sessionSet"] = reg(httpStub);
+        variables_["sessionDestroy"] = reg(httpStub);
         variables_["uploadFileName"] = reg(httpStub);
         variables_["uploadFileData"] = reg(httpStub);
         variables_["uploadSave"] = reg(httpStub);
@@ -1030,6 +1147,19 @@ void Interpreter::registerBuiltins() {
         return (double)(*arr)->data.size();
     });
     // Number: format, random, round, floor, ceil, abs, min, max
+    variables_["parseNumber"] = reg([](Interpreter* i, std::vector<Value> args) -> Value {
+        (void)i;
+        if (args.empty() || !std::holds_alternative<std::string>(args[0])) return Value(0.0);
+        std::string s = std::get<std::string>(args[0]);
+        if (s.empty()) return Value(0.0);
+        try {
+            size_t pos = 0;
+            double v = std::stod(s, &pos);
+            return Value(v);
+        } catch (...) {
+            return Value(0.0);
+        }
+    });
     variables_["numberFormat"] = reg([](Interpreter* i, std::vector<Value> args) -> Value {
         (void)i;
         if (args.empty() || !std::holds_alternative<double>(args[0])) return std::string("");

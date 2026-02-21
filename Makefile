@@ -80,6 +80,7 @@ clean:
 	rm -f $(BINDIR)/modules/image_optimize.so $(BINDIR)/modules/image_optimize.dylib $(BINDIR)/modules/image_optimize.dll
 	rm -f $(BINDIR)/modules/os.so $(BINDIR)/modules/os.dylib $(BINDIR)/modules/os.dll
 	rm -f $(BINDIR)/modules/headless_browser.so $(BINDIR)/modules/headless_browser.dylib $(BINDIR)/modules/headless_browser.dll
+	rm -f $(BINDIR)/modules/ffmpeg.so $(BINDIR)/modules/ffmpeg.dylib $(BINDIR)/modules/ffmpeg.dll
 
 # Example loadable extension: build into bin/modules/ (enable with extension = example in melt.ini).
 EXT_MODULES = $(BINDIR)/modules
@@ -87,6 +88,7 @@ EXT_SRC = extensions/example/example.cpp
 IMG_OPT_SRC = extensions/image_optimize/image_optimize.cpp
 OS_EXT_SRC = extensions/os/os.cpp
 HEADLESS_SRC = extensions/headless_browser/headless_browser.cpp
+FFMPEG_SRC = extensions/ffmpeg/ffmpeg.cpp
 ifeq ($(UNAME_S),Darwin)
 EXT_SUFFIX = .dylib
 else ifeq ($(UNAME_S),Linux)
@@ -98,8 +100,9 @@ EXT_TARGET = $(EXT_MODULES)/example$(EXT_SUFFIX)
 IMG_OPT_TARGET = $(EXT_MODULES)/image_optimize$(EXT_SUFFIX)
 OS_EXT_TARGET = $(EXT_MODULES)/os$(EXT_SUFFIX)
 HEADLESS_TARGET = $(EXT_MODULES)/headless_browser$(EXT_SUFFIX)
+FFMPEG_TARGET = $(EXT_MODULES)/ffmpeg$(EXT_SUFFIX)
 
-modules: $(EXT_TARGET) $(IMG_OPT_TARGET) $(OS_EXT_TARGET) $(HEADLESS_TARGET)
+modules: $(EXT_TARGET) $(IMG_OPT_TARGET) $(OS_EXT_TARGET) $(HEADLESS_TARGET) $(FFMPEG_TARGET)
 
 $(EXT_TARGET): $(EXT_SRC)
 	@mkdir -p $(EXT_MODULES)
@@ -131,6 +134,14 @@ ifeq ($(UNAME_S),Darwin)
 	$(CXX) $(CXXFLAGS) -fPIC -shared -undefined dynamic_lookup -o $(HEADLESS_TARGET) $(HEADLESS_SRC)
 else
 	$(CXX) $(CXXFLAGS) -fPIC -shared -o $(HEADLESS_TARGET) $(HEADLESS_SRC)
+endif
+
+$(FFMPEG_TARGET): $(FFMPEG_SRC)
+	@mkdir -p $(EXT_MODULES)
+ifeq ($(UNAME_S),Darwin)
+	$(CXX) $(CXXFLAGS) -fPIC -shared -undefined dynamic_lookup -o $(FFMPEG_TARGET) $(FFMPEG_SRC)
+else
+	$(CXX) $(CXXFLAGS) -fPIC -shared -o $(FFMPEG_TARGET) $(FFMPEG_SRC)
 endif
 
 # CI build: same as 'all' but ensure no MySQL/SDL linkage (avoids dyld load errors on runners).

@@ -192,9 +192,14 @@
           <a href="#builtins-encoding">Encoding / crypto</a>
           <a href="#builtins-views">Views (templates)</a>
           <a href="#builtins-http">HTTP server</a>
+          <a href="#builtins-http-client-upload">HTTP client &amp; upload</a>
           <a href="#builtins-stdio-mcp">Stdio / MCP</a>
           <a href="#builtins-mysql">MySQL</a>
           <a href="#builtins-sqlite">SQLite</a>
+          <a href="#builtins-headless-browser">Headless browser (ext)</a>
+          <a href="#builtins-image-optimize">Image optimize (ext)</a>
+          <a href="#builtins-os">OS (ext)</a>
+          <a href="#builtins-ffmpeg">FFmpeg (ext)</a>
         </div>
         <a href="#http-mvc">HTTP Server & MVC</a>
         <a href="#official-website">Official Website</a>
@@ -366,6 +371,7 @@ obj.getX();  // returns 1</code></pre>
           <tr><td><code>randomInt(lo, hi)</code></td><td>Random integer in [lo, hi] inclusive.</td></tr>
           <tr><td><code>round(n)</code> <code>floor(n)</code> <code>ceil(n)</code> <code>abs(n)</code></td><td>Rounding and absolute value.</td></tr>
           <tr><td><code>min(a, b)</code> <code>max(a, b)</code></td><td>Smaller or larger of two numbers.</td></tr>
+          <tr><td><code>parseNumber(str)</code></td><td>Parse string to number; returns 0 if invalid.</td></tr>
         </table>
         <h3 id="builtins-modules-config">Modules and central config</h3>
         <p><strong>Global:</strong> <code>bin/melt.ini</code> (php.ini-style), read first. <strong>Project:</strong> <code>melt.config</strong> next to entry script; merged after. Format: <code>key = value</code>, <code>#</code> comments. Keys: <code>modulePath</code>, <code>extension_dir</code> (default <code>modules</code>), <code>extension</code> (comma-separated names of loadable .so/.dylib/.dll). <code>import "name"</code> resolves: current dir, then each modulePath dir. Loadable extensions export <code>melt_register(Interpreter*)</code> and call <code>interp-&gt;registerBuiltin(...)</code>.</p>
@@ -424,10 +430,27 @@ obj.getX();  // returns 1</code></pre>
           <tr><td><code>renderView(templatePath, data)</code></td><td>Loads HTML template; <code>{{ key }}</code> escaped, <code>{!! key !!}</code> raw. Returns rendered string.</td></tr>
         </table>
         <h3 id="builtins-http">HTTP server</h3>
-        <p><strong>Request:</strong> <code>getRequestPath()</code> <code>getRequestMethod()</code> <code>getRequestBody()</code></p>
-        <p><strong>Response:</strong> <code>setResponseBody(str)</code> <code>setResponseStatus(code)</code> <code>setResponseContentType(str)</code> <code>servePublic(path)</code></p>
+        <p><strong>Request:</strong> <code>getRequestPath()</code> <code>getRequestMethod()</code> <code>getRequestBody()</code> <code>getRequestHeader(name)</code></p>
+        <p><strong>Response:</strong> <code>setResponseBody(str)</code> <code>setResponseStatus(code)</code> <code>setResponseContentType(str)</code> <code>setResponseHeader(name, value)</code> <code>servePublic(path)</code></p>
+        <p><strong>Cookies:</strong> <code>getCookie(name)</code> — value of cookie from <code>Cookie</code> header, or <code>""</code>. <code>setCookie(name, value [, path [, maxAge [, httpOnly]]])</code> — add <code>Set-Cookie</code> header (path default <code>"/"</code>, maxAge default <code>-1</code> omit, httpOnly <code>1</code> default).</p>
+        <p><strong>Session:</strong> Server-side session keyed by <code>melt_sid</code> cookie (created automatically). <code>sessionGet(key)</code> — get string value; <code>sessionSet(key, value)</code> — set value (string, number, or boolean); <code>sessionDestroy()</code> — remove session and clear cookie.</p>
         <p><strong>Control:</strong> <code>setHandler("ClassName")</code> <code>listen(port)</code></p>
         <p><code>servePublic(path)</code> serves from <code>public/js</code>, <code>public/css</code>, <code>public/images</code> when path matches.</p>
+        <h3 id="builtins-http-client-upload">HTTP client &amp; upload</h3>
+        <p><strong>Outbound HTTP (curl-based):</strong></p>
+        <table>
+          <tr><th>Function</th><th>Description</th></tr>
+          <tr><td><code>httpRequest(method, url [, body [, headers]])</code></td><td>Send HTTP request; returns object with <code>body</code>, <code>status</code>, <code>error</code> (if any). <code>headers</code> is optional string (e.g. <code>"Content-Type: application/json"</code>).</td></tr>
+          <tr><td><code>httpGet(url)</code></td><td>GET request; returns same object as <code>httpRequest</code>.</td></tr>
+          <tr><td><code>httpPost(url, body)</code></td><td>POST request with body; returns same object.</td></tr>
+        </table>
+        <p><strong>Multipart upload (in request handler):</strong> When the request is <code>multipart/form-data</code>, the interpreter parses the body and exposes:</p>
+        <table>
+          <tr><th>Function</th><th>Description</th></tr>
+          <tr><td><code>uploadFileName()</code></td><td>Original filename of the uploaded file (first part), or <code>""</code>.</td></tr>
+          <tr><td><code>uploadFileData()</code></td><td>Raw file data (string) of the first uploaded file.</td></tr>
+          <tr><td><code>uploadSave(path)</code></td><td>Save the first uploaded file to <code>path</code> (relative to script dir). Returns truthy/falsy.</td></tr>
+        </table>
         <h3 id="builtins-stdio-mcp">Stdio / MCP transport</h3>
         <p>For stdio-based servers (e.g. MCP): one message per line on stdin, one response per line on stdout. <code>setMcpHandler("ClassName")</code> then <code>runMcp()</code>. Handler’s <code>handle()</code> uses <code>getMcpRequest()</code>, <code>jsonDecode</code>/<code>jsonEncode</code>, <code>setMcpResponse(str)</code>.</p>
         <h4>Architecture</h4>
@@ -479,6 +502,51 @@ obj.getX();  // returns 1</code></pre>
           <tr><td><code>sqliteFetchRow()</code></td><td>Next row as string; columns separated by <code>chr(1)</code>. Returns <code>""</code> when done.</td></tr>
           <tr><td><code>sqliteFetchAll()</code></td><td>All remaining rows as array of rows, e.g. <code>[["1","Alice"],["2","Bob"]]</code>.</td></tr>
           <tr><td><code>sqliteClose()</code></td><td>Close database and finalize active query.</td></tr>
+        </table>
+        <h3 id="builtins-headless-browser">Headless browser (extension, <code>extension = headless_browser</code>)</h3>
+        <p>Requires Chrome, Chromium, or Edge. Build: <code>make modules</code>; enable in <code>melt.config</code> or <code>melt.ini</code> with <code>extension = headless_browser</code>.</p>
+        <table>
+          <tr><th>Function</th><th>Description</th></tr>
+          <tr><td><code>headlessBrowserVersion()</code></td><td>Extension version string.</td></tr>
+          <tr><td><code>browserAvailable()</code></td><td>True if a supported browser was found on the system.</td></tr>
+          <tr><td><code>browserScreenshot(url, outputPath [, width [, height]])</code></td><td>Open URL headless and save screenshot to <code>outputPath</code> (PNG). Optional viewport width/height.</td></tr>
+          <tr><td><code>browserDumpDom(url, outputPath)</code></td><td>Open URL and dump DOM HTML to file.</td></tr>
+          <tr><td><code>browserPdf(url, outputPath)</code></td><td>Open URL and print to PDF file.</td></tr>
+        </table>
+        <h3 id="builtins-image-optimize">Image optimize (extension, <code>extension = image_optimize</code>)</h3>
+        <p>Uses sips (macOS) or ImageMagick when available. Build: <code>make modules</code>; enable with <code>extension = image_optimize</code>.</p>
+        <table>
+          <tr><th>Function</th><th>Description</th></tr>
+          <tr><td><code>imageOptimizeVersion()</code></td><td>Extension version string.</td></tr>
+          <tr><td><code>optimizeImage(inputPath, outputPath [, quality])</code></td><td>Optimize/compress image (quality 1–100, default 80).</td></tr>
+          <tr><td><code>resizeImage(inputPath, outputPath, width, height)</code></td><td>Resize image to given dimensions.</td></tr>
+        </table>
+        <h3 id="builtins-os">OS (extension, <code>extension = os</code>)</h3>
+        <p>Build: <code>make modules</code>; enable with <code>extension = os</code>.</p>
+        <table>
+          <tr><th>Function</th><th>Description</th></tr>
+          <tr><td><code>osVersion()</code></td><td>Extension version string.</td></tr>
+          <tr><td><code>osName()</code></td><td>OS name: <code>windows</code>, <code>macos</code>, <code>linux</code>, or <code>unknown</code>.</td></tr>
+          <tr><td><code>osArch()</code></td><td>Architecture: <code>x64</code>, <code>arm64</code>, <code>x86</code>, or <code>unknown</code>.</td></tr>
+          <tr><td><code>osPwd()</code></td><td>Current working directory path.</td></tr>
+          <tr><td><code>osGetEnv(key)</code></td><td>Environment variable value, or <code>""</code>.</td></tr>
+          <tr><td><code>osExec(cmd)</code></td><td>Run shell command; returns exit code (number).</td></tr>
+          <tr><td><code>osFileExists(path)</code></td><td>True if path exists.</td></tr>
+          <tr><td><code>osMkdirs(path)</code></td><td>Create directory and parents; returns truthy/falsy.</td></tr>
+        </table>
+        <h3 id="builtins-ffmpeg">FFmpeg (extension, <code>extension = ffmpeg</code>)</h3>
+        <p>Requires <strong>ffmpeg</strong> (and <strong>ffprobe</strong> for probe functions) on PATH. Build: <code>make modules</code>; enable with <code>extension = ffmpeg</code>.</p>
+        <table>
+          <tr><th>Function</th><th>Description</th></tr>
+          <tr><td><code>ffmpegVersion()</code></td><td>Extension version string.</td></tr>
+          <tr><td><code>ffmpegAvailable()</code></td><td>True if <code>ffmpeg</code> is on PATH.</td></tr>
+          <tr><td><code>ffprobeAvailable()</code></td><td>True if <code>ffprobe</code> is on PATH.</td></tr>
+          <tr><td><code>ffmpegConvert(inputPath, outputPath [, extraOptions])</code></td><td>Transcode; optional extra args (e.g. <code>"-b:v 1M"</code>). Returns truthy on success.</td></tr>
+          <tr><td><code>ffmpegExtractAudio(inputPath, outputPath [, codec])</code></td><td>Extract audio; codec: <code>"mp3"</code> (default), <code>"aac"</code>, <code>"opus"</code>.</td></tr>
+          <tr><td><code>ffmpegToGif(inputPath, outputPath [, width])</code></td><td>Video to animated GIF; optional width (default 320).</td></tr>
+          <tr><td><code>ffprobeDuration(inputPath)</code></td><td>Duration in seconds (number), or <code>-1</code> on error.</td></tr>
+          <tr><td><code>ffprobeInfo(inputPath)</code></td><td>JSON string with format and streams; use <code>jsonDecode()</code> in Melt.</td></tr>
+          <tr><td><code>ffmpegGenerateTestVideo(outputPath [, duration [, width [, height]]])</code></td><td>Generate a short test video (lavfi testsrc). Defaults: 2 s, 320×240.</td></tr>
         </table>
       </section>
 
@@ -756,8 +824,15 @@ print myOtherFunc("hello");</code></pre>
           <tr><td>json_demo.melt</td><td>jsonEncode, jsonDecode.</td></tr>
           <tr><td>encryption_demo.melt</td><td>Base64, xorCipher.</td></tr>
           <tr><td>server.melt</td><td>HTTP server.</td></tr>
+          <tr><td>session_cookies_demo.melt</td><td>Session and cookies: getCookie, setCookie, sessionGet, sessionSet, sessionDestroy. Port 8765.</td></tr>
           <tr><td>mysql_example.melt</td><td>MySQL (requires with-mysql).</td></tr>
           <tr><td>sqlite_example.melt</td><td>SQLite (requires with-sqlite).</td></tr>
+          <tr><td>upload_server.melt</td><td>HTTP server with multipart file upload (uploadSave, uploadFileName, uploadFileData).</td></tr>
+          <tr><td>rest_api_client.melt</td><td>Outbound HTTP: httpGet, httpPost, httpRequest.</td></tr>
+          <tr><td>image_optimize_demo.melt</td><td>Image optimize extension: optimizeImage, resizeImage (requires extension = image_optimize).</td></tr>
+          <tr><td>os_extension_demo.melt</td><td>OS extension: osName, osPwd, osGetEnv, osExec, osFileExists, osMkdirs (requires extension = os).</td></tr>
+          <tr><td>headless_browser_demo.melt</td><td>Headless browser extension: screenshot, dump DOM, PDF (requires extension = headless_browser, Chrome/Chromium/Edge).</td></tr>
+          <tr><td>ffmpeg_demo.melt</td><td>FFmpeg extension: convert, extract audio, to GIF, ffprobe duration/info (requires extension = ffmpeg, ffmpeg/ffprobe on PATH).</td></tr>
           <tr><td>web_project_mvc/main.melt</td><td>Full MVC app.</td></tr>
           <tr><td>official_website_using_melt/main.melt</td><td>Official Melt website (MVC): Home, Documentation, About, Resource, Support, Blog. Port 4000.</td></tr>
         </table>

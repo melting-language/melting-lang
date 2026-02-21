@@ -151,6 +151,11 @@ private:
     std::vector<std::pair<std::string, std::string>> responseHeaders_;
     std::string handlerClassName_;
 
+    // Session store: sessionId -> (key -> value). Cleared per request: currentSessionId_.
+    std::unordered_map<std::string, std::unordered_map<std::string, std::string>> sessionStore_;
+    std::string currentSessionId_;
+    void ensureSession();  // load or create session for current request (uses getRequestHeader / addResponseHeader)
+
     // MCP / stdio transport state
     std::string mcpRequest_;
     std::string mcpResponse_;
