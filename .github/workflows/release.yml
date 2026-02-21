@@ -82,11 +82,16 @@ jobs:
         run: |
           dpkg-buildpackage -us -uc -b -d
 
+      - name: Copy .deb into workspace
+        run: |
+          mkdir -p dist
+          cp ../meltlang_*_amd64.deb dist/
+
       - name: Upload Debian package
         uses: actions/upload-artifact@v4
         with:
           name: debian-package
-          path: ../meltlang_*_amd64.deb
+          path: dist/*.deb
 
   release:
     needs: [build, debian]
