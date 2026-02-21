@@ -106,6 +106,7 @@ jobs:
         run: |
           REF="${{ github.ref_name }}"
           VERSION="${REF#v}"
+          VERSION="${VERSION#.}"
           echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
           echo "Package version: ${VERSION}"
 
