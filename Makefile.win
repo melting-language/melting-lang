@@ -3,8 +3,8 @@
 
 CXX = g++
 CXXFLAGS = -std=c++17 -Wall -I src -I src/core -I src/http -I src/mysql -I src/sqlite -I src/gui
-# Static-link MinGW runtime and pthread so the exe does not need libwinpthread-1.dll, libgcc_s_*.dll, libstdc++-6.dll
-LDFLAGS = -static-libgcc -static-libstdc++ -Wl,-Bstatic -lpthread -Wl,-Bdynamic -lws2_32
+# Dynamic link (exe + DLLs packaged together in release zip)
+LDFLAGS = -lws2_32
 SRC = src/main.cpp src/core/lexer.cpp src/core/parser.cpp src/core/interpreter.cpp src/core/module_loader.cpp src/http/http_server.cpp src/mysql/mysql_builtin.cpp src/sqlite/sqlite_builtin.cpp
 BINDIR = bin
 TARGET = $(BINDIR)/melt.exe

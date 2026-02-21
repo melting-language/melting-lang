@@ -61,17 +61,33 @@ jobs:
         uses: msys2/setup-msys2@v2
         with:
           msystem: MINGW64
-          install: mingw-w64-x86_64-gcc make
+          install: mingw-w64-x86_64-gcc make zip
 
       - name: Build (Makefile.win)
         run: make -f Makefile.win
         shell: msys2 {0}
 
-      - name: Upload Windows binary
+      - name: Install zip (for packaging)
+        run: pacman -S --noconfirm zip
+        shell: msys2 {0}
+
+      - name: Create zip with exe + DLLs
+        run: |
+          PACKAGE=melt-windows-x86_64
+          mkdir -p "$PACKAGE"
+          cp bin/melt.exe "$PACKAGE/"
+          # Copy MinGW runtime DLLs required at runtime (no install needed)
+          MINGW_BIN="${MINGW_PREFIX:-/mingw64}/bin"
+          cp "$MINGW_BIN/libwinpthread-1.dll" "$MINGW_BIN/libgcc_s_seh-1.dll" "$MINGW_BIN/libstdc++-6.dll" "$PACKAGE/" 2>/dev/null || true
+          zip -r "$PACKAGE.zip" "$PACKAGE"
+          ls -la "$PACKAGE" "$PACKAGE.zip"
+        shell: msys2 {0}
+
+      - name: Upload Windows zip
         uses: actions/upload-artifact@v4
         with:
           name: melt-windows-x86_64
-          path: bin/melt.exe
+          path: melt-windows-x86_64.zip
 
   debian:
     runs-on: ubuntu-latest
@@ -147,6 +163,10 @@ jobs:
             if [ -f "${dir}melt.exe" ]; then
               cp "${dir}melt.exe" "bin/${name}.exe"
               echo "Added bin/${name}.exe"
+            fi
+            if [ -d "${dir}" ] && ls "${dir}"/*.zip 1>/dev/null 2>&1; then
+              cp "${dir}"/*.zip dist/
+              echo "Added dist/*.zip"
             fi
             if [ -d "${dir}" ] && ls "${dir}"/*.deb 1>/dev/null 2>&1; then
               cp "${dir}"/*.deb dist/
