@@ -1,0 +1,6 @@
+meltlang (0.0.4) unstable; urgency=medium
+
+  * See GitHub Releases for full changelog.
+  * Session & cookies, HTTP client & upload, loadable extensions (ffmpeg, os, etc.).
+
+ -- Melt Language <melt@example.com>  Wed, 01 Jan 2025 00:00:00 +0000

@@ -1,0 +1,17 @@
+#!/usr/bin/make -f
+# Debian build rules for meltlang. Builds melt with make, installs binary for .deb.
+
+export DH_VERBOSE = 1
+
+%:
+	dh $@
+
+override_dh_auto_build:
+	$(MAKE) -f Makefile
+
+override_dh_auto_install:
+	$(MAKE) -f Makefile install DESTDIR=debian/meltlang PREFIX=/usr
+
+override_dh_auto_clean:
+	$(MAKE) -f Makefile clean
+	dh_auto_clean

@@ -53,6 +53,14 @@ make install PREFIX=$(HOME)/.local # user-only (add ~/.local/bin to PATH)
 
 To remove: `make uninstall` (or `make uninstall PREFIX=...` if you changed it).
 
+**Install from .deb (Linux)** — For each release we build a Debian package. Download `meltlang_*_amd64.deb` from the [GitHub Releases](https://github.com/melting-language/melting-lang/releases) page, then:
+
+```bash
+sudo dpkg -i meltlang_*_amd64.deb
+```
+
+After that, run `melt script.melt` from anywhere.
+
 ## Run
 
 The compiled binary is `bin/melt`. From the project root:

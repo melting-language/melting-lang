@@ -1,0 +1,20 @@
+Source: meltlang
+Section: interpreters
+Priority: optional
+Maintainer: Melt Language <melt@example.com>
+Build-Depends: debhelper-compat (= 13), build-essential
+Standards-Version: 4.6.0
+Rules-Requires-Root: no
+Homepage: https://github.com/melting-language/melting-lang
+Vcs-Browser: https://github.com/melting-language/melting-lang
+Vcs-Git: https://github.com/melting-language/melting-lang.git
+
+Package: meltlang
+Architecture: any
+Depends: ${shlibs:Depends}, ${misc:Depends}
+Description: Melt - minimal object-oriented programming language
+ Melt is a minimal, interpreted, object-oriented language built in C++.
+ It supports variables, classes, methods, control flow, file I/O, JSON,
+ HTTP server, and optional MySQL/SQLite and loadable extensions.
+ .
+ Run: melt script.melt
