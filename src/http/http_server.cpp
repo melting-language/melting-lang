@@ -1,5 +1,6 @@
 #include "http_server.hpp"
 #include "interpreter.hpp"
+#include <cstdio>
 #include <cstring>
 #include <sstream>
 #include <stdexcept>
@@ -141,21 +142,51 @@ void runHttpServer(Interpreter* interp, int port) {
         std::string method, path, body, headers;
         parseRequest(request, method, path, body, headers);
         interp->setRequestData(path, method, body, headers);
+        bool firstChunk = true;
+        interp->setResponseChunkSender([clientFd, &firstChunk](Interpreter* i, const std::string& chunk) {
+            if (firstChunk) {
+                int status = i->getResponseStatus();
+                std::string statusText = (status == 200) ? "OK" : (status == 404) ? "Not Found" : (status == 302) ? "Found" : "Error";
+                std::ostringstream head;
+                head << "HTTP/1.1 " << status << " " << statusText << "\r\n"
+                    << "Transfer-Encoding: chunked\r\n"
+                    << "Connection: close\r\n"
+                    << "Content-Type: " << i->getResponseContentType() << "\r\n";
+                for (const auto& h : i->getResponseHeaders())
+                    head << h.first << ": " << h.second << "\r\n";
+                head << "\r\n";
+                std::string hdr = head.str();
+                send(clientFd, hdr.data(), (int)hdr.size(), 0);
+                firstChunk = false;
+            }
+            if (chunk.empty()) return;
+            char lenBuf[32];
+            int n = snprintf(lenBuf, sizeof(lenBuf), "%zx\r\n", chunk.size());
+            send(clientFd, lenBuf, n, 0);
+            send(clientFd, chunk.data(), (int)chunk.size(), 0);
+            send(clientFd, "\r\n", 2, 0);
+        });
         interp->callHandler();
-        std::string respBody = interp->getResponseBody();
-        int status = interp->getResponseStatus();
-        std::string contentType = interp->getResponseContentType();
-        std::string statusText = (status == 200) ? "OK" : (status == 404) ? "Not Found" : (status == 302) ? "Found" : "Error";
-        std::ostringstream out;
-        out << "HTTP/1.1 " << status << " " << statusText << "\r\n"
-            << "Content-Length: " << respBody.size() << "\r\n"
-            << "Connection: close\r\n"
-            << "Content-Type: " << contentType << "\r\n";
-        for (const auto& h : interp->getResponseHeaders())
-            out << h.first << ": " << h.second << "\r\n";
-        out << "\r\n" << respBody;
-        std::string response = out.str();
-        send(clientFd, response.data(), (int)response.size(), 0);
+        interp->setResponseChunkSender(nullptr);
+        if (interp->responseStreamingUsed()) {
+            const char term[] = "0\r\n\r\n";
+            send(clientFd, term, (int)sizeof(term) - 1, 0);
+        } else {
+            std::string respBody = interp->getResponseBody();
+            int status = interp->getResponseStatus();
+            std::string contentType = interp->getResponseContentType();
+            std::string statusText = (status == 200) ? "OK" : (status == 404) ? "Not Found" : (status == 302) ? "Found" : "Error";
+            std::ostringstream out;
+            out << "HTTP/1.1 " << status << " " << statusText << "\r\n"
+                << "Content-Length: " << respBody.size() << "\r\n"
+                << "Connection: close\r\n"
+                << "Content-Type: " << contentType << "\r\n";
+            for (const auto& h : interp->getResponseHeaders())
+                out << h.first << ": " << h.second << "\r\n";
+            out << "\r\n" << respBody;
+            std::string response = out.str();
+            send(clientFd, response.data(), (int)response.size(), 0);
+        }
         closesocket(clientFd);
     }
     closesocket(listenFd);

@@ -431,7 +431,7 @@ obj.getX();  // returns 1</code></pre>
         </table>
         <h3 id="builtins-http">HTTP server</h3>
         <p><strong>Request:</strong> <code>getRequestPath()</code> <code>getRequestMethod()</code> <code>getRequestBody()</code> <code>getRequestHeader(name)</code></p>
-        <p><strong>Response:</strong> <code>setResponseBody(str)</code> <code>setResponseStatus(code)</code> <code>setResponseContentType(str)</code> <code>setResponseHeader(name, value)</code> <code>servePublic(path)</code></p>
+        <p><strong>Response:</strong> <code>setResponseBody(str)</code> <code>setResponseStatus(code)</code> <code>setResponseContentType(str)</code> <code>setResponseHeader(name, value)</code> <code>streamChunk(str)</code> <code>servePublic(path)</code></p>
         <p><strong>Cookies:</strong> <code>getCookie(name)</code> — value of cookie from <code>Cookie</code> header, or <code>""</code>. <code>setCookie(name, value [, path [, maxAge [, httpOnly]]])</code> — add <code>Set-Cookie</code> header (path default <code>"/"</code>, maxAge default <code>-1</code> omit, httpOnly <code>1</code> default).</p>
         <p><strong>Session:</strong> Server-side session keyed by <code>melt_sid</code> cookie (created automatically). <code>sessionGet(key)</code> — get string value; <code>sessionSet(key, value)</code> — set value (string, number, or boolean); <code>sessionDestroy()</code> — remove session and clear cookie.</p>
         <p><strong>Control:</strong> <code>setHandler("ClassName")</code> <code>listen(port)</code></p>

@@ -178,11 +178,14 @@ Only meaningful when the script is used as an HTTP server (e.g. after `setHandle
 
 | Function | Description |
 |----------|-------------|
-| `setResponseBody(str)` | Sets the response body to the string `str`. |
+| `setResponseBody(str)` | Sets the response body to the string `str`. If streaming has already started (see `streamChunk`), appends instead of replacing so the full body is still available for tests/logging. |
 | `setResponseStatus(code)` | Sets the HTTP status code (e.g. `200`, `404`). Argument is a number. |
 | `setResponseContentType(str)` | Sets the `Content-Type` header (e.g. `"text/html; charset=utf-8"`, `"application/javascript"`). |
 | `setResponseHeader(name, value)` | Adds a response header (e.g. `"Location"`, `"Set-Cookie"`). Can be called multiple times. |
+| `streamChunk(str)` | Appends `str` to the response body and, when handling an HTTP request, sends that chunk immediately to the client (chunked transfer). Use for streaming responses (e.g. Server-Sent Events or progressive output). If streaming is not active (e.g. not in an HTTP request), only appends to the in-memory body. Once any chunk is sent, the response uses `Transfer-Encoding: chunked`; redirects or changing status after the first chunk have no effect because the response is already committed. |
 | `servePublic(path)` | If `path` is under `/js/`, `/css/`, or `/images/`, serves the file from the `public/` folder (relative to the script directory), sets body and `Content-Type`, and returns a truthy value. Otherwise returns falsy. Use before handling other routes to serve static assets. |
+
+**Streaming responses:** Call `streamChunk(str)` to send parts of the body before the handler returns. The server uses `Transfer-Encoding: chunked` and sends each chunk as it arrives. Set `Content-Type: text/event-stream` and use `streamChunk("data: ...\n\n")` for [Server-Sent Events](https://html.spec.whatwg.org/multipage/server-sent-events.html). Once the first chunk is sent, the response is committed (redirects and status changes have no effect). If you use both `setResponseBody` and `streamChunk`, the first `streamChunk` turns on streaming; later `setResponseBody` calls append to the in-memory buffer only.
 
 ### Server control
 

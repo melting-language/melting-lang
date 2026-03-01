@@ -20,6 +20,7 @@
 #include <cstdio>
 #include <cstdlib>
 #include <random>
+#include <filesystem>
 
 struct ReturnException : std::exception {
     Value value;
@@ -395,6 +396,69 @@ static bool extractMultipartFilePart(
     }
 }
 
+static bool extractMultipartFieldValue(
+    const std::string& headers,
+    const std::string& body,
+    const std::string& fieldName,
+    std::string& outValue
+) {
+    std::string ct = getHeaderValueCaseInsensitive(headers, "Content-Type");
+    std::string ctLower = toLowerAscii(ct);
+    if (ctLower.find("multipart/form-data") == std::string::npos) return false;
+    size_t b = ctLower.find("boundary=");
+    if (b == std::string::npos) return false;
+    std::string boundary = trim(ct.substr(b + 9));
+    if (boundary.size() >= 2 && boundary.front() == '"' && boundary.back() == '"')
+        boundary = boundary.substr(1, boundary.size() - 2);
+    std::string delimiter = "--" + boundary;
+    size_t pos = 0;
+    while (true) {
+        size_t part = body.find(delimiter, pos);
+        if (part == std::string::npos) return false;
+        part += delimiter.size();
+        if (part + 1 < body.size() && body[part] == '-' && body[part + 1] == '-')
+            return false;
+        if (part + 1 < body.size() && body[part] == '\r' && body[part + 1] == '\n') part += 2;
+        else if (part < body.size() && body[part] == '\n') part += 1;
+        size_t headEnd = body.find("\r\n\r\n", part);
+        size_t sepLen = 4;
+        if (headEnd == std::string::npos) {
+            headEnd = body.find("\n\n", part);
+            sepLen = 2;
+        }
+        if (headEnd == std::string::npos) return false;
+        std::string partHeaders = body.substr(part, headEnd - part);
+        size_t dataStart = headEnd + sepLen;
+        size_t nextBoundary = body.find(delimiter, dataStart);
+        if (nextBoundary == std::string::npos) return false;
+        size_t dataEnd = nextBoundary;
+        if (dataEnd >= 2 && body[dataEnd - 2] == '\r' && body[dataEnd - 1] == '\n') dataEnd -= 2;
+        else if (dataEnd >= 1 && body[dataEnd - 1] == '\n') dataEnd -= 1;
+        std::string contentDisposition;
+        size_t hpos = 0;
+        while (hpos < partHeaders.size()) {
+            size_t lend = partHeaders.find("\r\n", hpos);
+            if (lend == std::string::npos) lend = partHeaders.find('\n', hpos);
+            if (lend == std::string::npos) lend = partHeaders.size();
+            std::string line = partHeaders.substr(hpos, lend - hpos);
+            if (toLowerAscii(line).find("content-disposition:") == 0) {
+                contentDisposition = line;
+                break;
+            }
+            if (lend >= partHeaders.size()) break;
+            if (lend + 1 < partHeaders.size() && partHeaders[lend] == '\r' && partHeaders[lend + 1] == '\n') hpos = lend + 2;
+            else hpos = lend + 1;
+        }
+        std::string partName = getContentDispositionParam(contentDisposition, "name");
+        std::string filename = getContentDispositionParam(contentDisposition, "filename");
+        if (partName == fieldName && filename.empty()) {
+            outValue = body.substr(dataStart, dataEnd - dataStart);
+            return true;
+        }
+        pos = nextBoundary;
+    }
+}
+
 static std::string shellQuote(const std::string& s) {
 #if defined(_WIN32)
     std::string out = "\"";
@@ -715,6 +779,13 @@ void Interpreter::setRequestData(const std::string& path, const std::string& met
     responseContentType_ = "text/html; charset=utf-8";
     responseHeaders_.clear();
     currentSessionId_.clear();
+    responseStreamingUsed_ = false;
+}
+
+void Interpreter::streamChunkInternal(const std::string& s) {
+    responseBody_ += s;
+    responseStreamingUsed_ = true;
+    if (responseChunkSender_) responseChunkSender_(this, s);
 }
 
 void Interpreter::callHandler() {
@@ -781,8 +852,10 @@ void Interpreter::registerBuiltins() {
         return i->getCurrentRequestBody();
     });
     variables_["setResponseBody"] = reg([](Interpreter* i, std::vector<Value> args) -> Value {
-        if (!args.empty() && std::holds_alternative<std::string>(args[0]))
-            i->setResponseBodyInternal(std::get<std::string>(args[0]));
+        if (!args.empty() && std::holds_alternative<std::string>(args[0])) {
+            std::string s = std::get<std::string>(args[0]);
+            i->setResponseBodyInternal(s, i->responseStreamingUsed());
+        }
         return false;
     });
     variables_["setResponseStatus"] = reg([](Interpreter* i, std::vector<Value> args) -> Value {
@@ -793,6 +866,11 @@ void Interpreter::registerBuiltins() {
     variables_["setResponseContentType"] = reg([](Interpreter* i, std::vector<Value> args) -> Value {
         if (!args.empty() && std::holds_alternative<std::string>(args[0]))
             i->setResponseContentTypeInternal(std::get<std::string>(args[0]));
+        return false;
+    });
+    variables_["streamChunk"] = reg([](Interpreter* i, std::vector<Value> args) -> Value {
+        if (!args.empty() && std::holds_alternative<std::string>(args[0]))
+            i->streamChunkInternal(std::get<std::string>(args[0]));
         return false;
     });
     variables_["getRequestHeader"] = reg([](Interpreter* i, std::vector<Value> args) -> Value {
@@ -908,10 +986,22 @@ void Interpreter::registerBuiltins() {
         bool ok = extractMultipartFilePart(i->getCurrentRequestHeaders(), i->getCurrentRequestBody(), fieldName, filename, data);
         if (!ok) return false;
         std::string full = i->getResolvedPath(path);
+        try {
+            std::filesystem::path p(full);
+            if (p.has_parent_path())
+                std::filesystem::create_directories(p.parent_path());
+        } catch (...) {}
         std::ofstream f(full, std::ios::binary);
         if (!f) return false;
         f.write(data.data(), (std::streamsize)data.size());
         return true;
+    });
+    variables_["getMultipartField"] = reg([](Interpreter* i, std::vector<Value> args) -> Value {
+        if (args.empty() || !std::holds_alternative<std::string>(args[0])) return std::string("");
+        std::string fieldName = std::get<std::string>(args[0]);
+        std::string value;
+        bool ok = extractMultipartFieldValue(i->getCurrentRequestHeaders(), i->getCurrentRequestBody(), fieldName, value);
+        return ok ? value : std::string("");
     });
     variables_["servePublic"] = reg([](Interpreter* i, std::vector<Value> args) -> Value {
         if (args.empty() || !std::holds_alternative<std::string>(args[0])) return false;
@@ -940,6 +1030,11 @@ void Interpreter::registerBuiltins() {
         variables_["setResponseBody"] = reg(httpStub);
         variables_["setResponseStatus"] = reg(httpStub);
         variables_["setResponseContentType"] = reg(httpStub);
+        variables_["streamChunk"] = reg([](Interpreter* i, std::vector<Value> args) -> Value {
+            if (!args.empty() && std::holds_alternative<std::string>(args[0]))
+                i->setResponseBodyInternal(std::get<std::string>(args[0]), true);
+            return false;
+        });
         variables_["getRequestHeader"] = reg(httpStub);
         variables_["setResponseHeader"] = reg(httpStub);
         variables_["getCookie"] = reg(httpStub);
@@ -950,6 +1045,7 @@ void Interpreter::registerBuiltins() {
         variables_["uploadFileName"] = reg(httpStub);
         variables_["uploadFileData"] = reg(httpStub);
         variables_["uploadSave"] = reg(httpStub);
+        variables_["getMultipartField"] = reg(httpStub);
         variables_["servePublic"] = reg(httpStub);
         variables_["setHandler"] = reg(httpStub);
         variables_["listen"] = reg(httpStub);

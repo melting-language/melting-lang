@@ -79,6 +79,10 @@ public:
     std::string getResponseContentType() const { return responseContentType_; }
     const std::vector<std::pair<std::string, std::string>>& getResponseHeaders() const { return responseHeaders_; }
     void setResponseBodyInternal(const std::string& s) { responseBody_ = s; }
+    void setResponseBodyInternal(const std::string& s, bool append) { if (append) responseBody_ += s; else responseBody_ = s; }
+    void setResponseChunkSender(std::function<void(Interpreter*, const std::string&)> f) { responseChunkSender_ = std::move(f); }
+    bool responseStreamingUsed() const { return responseStreamingUsed_; }
+    void streamChunkInternal(const std::string& s);
     void setResponseStatusInternal(int n) { responseStatus_ = n; }
     void setResponseContentTypeInternal(const std::string& s) { responseContentType_ = s; }
     const std::string& getCurrentRequestPath() const { return currentRequestPath_; }
@@ -150,6 +154,8 @@ private:
     std::string responseContentType_ = "text/html; charset=utf-8";
     std::vector<std::pair<std::string, std::string>> responseHeaders_;
     std::string handlerClassName_;
+    std::function<void(Interpreter*, const std::string&)> responseChunkSender_;
+    bool responseStreamingUsed_ = false;
 
     // Session store: sessionId -> (key -> value). Cleared per request: currentSessionId_.
     std::unordered_map<std::string, std::unordered_map<std::string, std::string>> sessionStore_;
