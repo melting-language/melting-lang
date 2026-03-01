@@ -5,6 +5,7 @@
 #include "http_server.hpp"
 #include "mysql_builtin.hpp"
 #include "sqlite_builtin.hpp"
+#include "qr_builtin.hpp"
 #endif
 #if defined(USE_GUI) && !defined(MELT_EMBEDDED)
 #include "gui_window.hpp"
@@ -1697,6 +1698,7 @@ void Interpreter::registerBuiltins() {
 #if !defined(MELT_EMBEDDED)
     registerMysqlBuiltins(this);
     registerSqliteBuiltins(this);
+    registerQrBuiltins(this);
 #endif
 }
 

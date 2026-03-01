@@ -22,6 +22,7 @@
 #include <netinet/in.h>
 #include <netinet/tcp.h>
 #include <sys/socket.h>
+#include <sys/wait.h>
 #include <unistd.h>
 #define SOCKET int
 #define INVALID_SOCKET (-1)
@@ -183,6 +184,7 @@ void runHttpServer(Interpreter* interp, int port) {
         closesocket(listenFd);
         throw std::runtime_error("listen failed");
     }
+#if defined(_WIN32) || defined(_WIN64)
     std::queue<std::pair<SOCKET, std::string>> requestQueue;
     std::mutex queueMutex;
     std::condition_variable queueCond;
@@ -198,6 +200,7 @@ void runHttpServer(Interpreter* interp, int port) {
             handleOneRequest(interp, item.first, item.second);
         }
     });
+#endif
     for (;;) {
         struct sockaddr_in clientAddr;
 #if defined(_WIN32) || defined(_WIN64)
@@ -247,11 +250,23 @@ void runHttpServer(Interpreter* interp, int port) {
                 if (request.size() >= bodyStart + expectedBodyLen) break;
             }
         }
+#if defined(_WIN32) || defined(_WIN64)
         {
             std::lock_guard<std::mutex> lock(queueMutex);
             requestQueue.push({clientFd, std::move(request)});
         }
         queueCond.notify_one();
+#else
+        (void)interp;
+        while (waitpid(-1, NULL, WNOHANG) > 0) {}
+        pid_t pid = fork();
+        if (pid == 0) {
+            closesocket(listenFd);
+            handleOneRequest(interp, clientFd, request);
+            _exit(0);
+        }
+        closesocket(clientFd);
+#endif
     }
     closesocket(listenFd);
 #if defined(_WIN32) || defined(_WIN64)

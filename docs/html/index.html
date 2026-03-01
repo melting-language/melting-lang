@@ -196,6 +196,7 @@
           <a href="#builtins-stdio-mcp">Stdio / MCP</a>
           <a href="#builtins-mysql">MySQL</a>
           <a href="#builtins-sqlite">SQLite</a>
+          <a href="#builtins-qr">QR code</a>
           <a href="#builtins-headless-browser">Headless browser (ext)</a>
           <a href="#builtins-image-optimize">Image optimize (ext)</a>
           <a href="#builtins-os">OS (ext)</a>
@@ -435,6 +436,7 @@ obj.getX();  // returns 1</code></pre>
         <p><strong>Cookies:</strong> <code>getCookie(name)</code> — value of cookie from <code>Cookie</code> header, or <code>""</code>. <code>setCookie(name, value [, path [, maxAge [, httpOnly]]])</code> — add <code>Set-Cookie</code> header (path default <code>"/"</code>, maxAge default <code>-1</code> omit, httpOnly <code>1</code> default).</p>
         <p><strong>Session:</strong> Server-side session keyed by <code>melt_sid</code> cookie (created automatically). <code>sessionGet(key)</code> — get string value; <code>sessionSet(key, value)</code> — set value (string, number, or boolean); <code>sessionDestroy()</code> — remove session and clear cookie.</p>
         <p><strong>Control:</strong> <code>setHandler("ClassName")</code> <code>listen(port)</code></p>
+        <p><strong>Multi-client:</strong> On Unix (macOS, Linux), the server forks a process per request so multiple clients are served concurrently (e.g. one user on a streaming page while others use the site). On Windows, a single worker handles requests one at a time (queued).</p>
         <p><code>servePublic(path)</code> serves from <code>public/js</code>, <code>public/css</code>, <code>public/images</code> when path matches.</p>
         <h3 id="builtins-http-client-upload">HTTP client &amp; upload</h3>
         <p><strong>Outbound HTTP (curl-based):</strong></p>
@@ -493,7 +495,8 @@ obj.getX();  // returns 1</code></pre>
           <tr><td><code>mysqlFetchAll()</code></td><td>All remaining rows as array of rows, e.g. <code>[["1","Alice"],["2","Bob"]]</code>.</td></tr>
           <tr><td><code>mysqlClose()</code></td><td>Close connection.</td></tr>
         </table>
-        <h3 id="builtins-sqlite">SQLite (optional, <code>make with-sqlite</code>)</h3>
+        <h3 id="builtins-sqlite">SQLite (included in default build)</h3>
+        <p>The default <code>make</code> builds with SQLite so <code>sqliteOpen</code>, <code>sqliteExec</code>, and the other SQLite built-ins are available without a separate target. You can still use <code>make with-sqlite</code> for an explicit SQLite build.</p>
         <table>
           <tr><th>Function</th><th>Description</th></tr>
           <tr><td><code>sqliteOpen(path)</code></td><td>Open/create SQLite database file. Returns truthy/falsy.</td></tr>
@@ -502,6 +505,12 @@ obj.getX();  // returns 1</code></pre>
           <tr><td><code>sqliteFetchRow()</code></td><td>Next row as string; columns separated by <code>chr(1)</code>. Returns <code>""</code> when done.</td></tr>
           <tr><td><code>sqliteFetchAll()</code></td><td>All remaining rows as array of rows, e.g. <code>[["1","Alice"],["2","Bob"]]</code>.</td></tr>
           <tr><td><code>sqliteClose()</code></td><td>Close database and finalize active query.</td></tr>
+        </table>
+        <h3 id="builtins-qr">QR code (optional, <code>make with-qr</code>)</h3>
+        <p>Requires <strong>libqrencode</strong>. Build: <code>make with-qr</code> (e.g. <code>brew install qrencode</code> on macOS).</p>
+        <table>
+          <tr><th>Function</th><th>Description</th></tr>
+          <tr><td><code>qrGenerate(text [, cellSize])</code></td><td>Encode <code>text</code> as a QR code; returns SVG string. Optional <code>cellSize</code> (1–32, default 4) is pixels per module. Use in HTML: <code>{!! qrGenerate("https://example.com") !!}</code> or serve with <code>setResponseContentType("image/svg+xml")</code>.</td></tr>
         </table>
         <h3 id="builtins-headless-browser">Headless browser (extension, <code>extension = headless_browser</code>)</h3>
         <p>Requires Chrome, Chromium, or Edge. Build: <code>make modules</code>; enable in <code>melt.config</code> or <code>melt.ini</code> with <code>extension = headless_browser</code>.</p>
@@ -765,6 +774,7 @@ print myOtherFunc("hello");</code></pre>
           <tr><td>Loadable extensions (module_loader)</td><td>Yes</td><td>Yes</td></tr>
           <tr><td>HTTP server (listen, setHandler, servePublic, …)</td><td>Yes</td><td>No (stub throws)</td></tr>
           <tr><td>MySQL built-ins</td><td>Only if <code>make with-mysql</code></td><td>No</td></tr>
+          <tr><td>SQLite built-ins</td><td>Yes (default build)</td><td>No</td></tr>
           <tr><td>GUI (imagePreview)</td><td>Only if <code>make with-gui</code></td><td>No (stub throws)</td></tr>
         </table>
 
@@ -826,7 +836,8 @@ print myOtherFunc("hello");</code></pre>
           <tr><td>server.melt</td><td>HTTP server.</td></tr>
           <tr><td>session_cookies_demo.melt</td><td>Session and cookies: getCookie, setCookie, sessionGet, sessionSet, sessionDestroy. Port 8765.</td></tr>
           <tr><td>mysql_example.melt</td><td>MySQL (requires with-mysql).</td></tr>
-          <tr><td>sqlite_example.melt</td><td>SQLite (requires with-sqlite).</td></tr>
+          <tr><td>sqlite_example.melt</td><td>SQLite (included in default build).</td></tr>
+          <tr><td>qr_demo.melt</td><td>QR code demo server: form to generate QR for any text (requires <code>make with-qr</code>). Port 8766.</td></tr>
           <tr><td>upload_server.melt</td><td>HTTP server with multipart file upload (uploadSave, uploadFileName, uploadFileData).</td></tr>
           <tr><td>rest_api_client.melt</td><td>Outbound HTTP: httpGet, httpPost, httpRequest.</td></tr>
           <tr><td>image_optimize_demo.melt</td><td>Image optimize extension: optimizeImage, resizeImage (requires extension = image_optimize).</td></tr>

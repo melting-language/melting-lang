@@ -1,7 +1,7 @@
 CXX = g++
 # Include all source dirs so that #include "lexer.hpp" etc. resolve from subdirs
-CXXFLAGS = -std=c++17 -Wall -I src -I src/core -I src/http -I src/mysql -I src/sqlite -I src/gui
-SRC = src/main.cpp src/core/lexer.cpp src/core/parser.cpp src/core/interpreter.cpp src/core/module_loader.cpp src/http/http_server.cpp src/mysql/mysql_builtin.cpp src/sqlite/sqlite_builtin.cpp
+CXXFLAGS = -std=c++17 -Wall -I src -I src/core -I src/http -I src/mysql -I src/sqlite -I src/gui -I src/qr
+SRC = src/main.cpp src/core/lexer.cpp src/core/parser.cpp src/core/interpreter.cpp src/core/module_loader.cpp src/http/http_server.cpp src/mysql/mysql_builtin.cpp src/sqlite/sqlite_builtin.cpp src/qr/qr_builtin.cpp
 SRC_EMBEDDED = src/main.cpp src/core/lexer.cpp src/core/parser.cpp src/core/interpreter.cpp src/core/module_loader.cpp
 BINDIR = bin
 TARGET = $(BINDIR)/melt
@@ -12,11 +12,25 @@ ifeq ($(UNAME_S),Linux)
 LDFLAGS += -ldl -rdynamic
 endif
 
+# SQLite: default build includes it so admin_panel_sqlite and examples work out of the box
+SQLITE_CFLAGS ?= $(shell pkg-config --cflags sqlite3 2>/dev/null)
+SQLITE_LIBS   ?= $(shell pkg-config --libs sqlite3 2>/dev/null)
+ifeq ($(SQLITE_LIBS),)
+SQLITE_LIBS := -lsqlite3
+endif
+
+# QR code (optional): make with-qr to enable qrGenerate builtin; requires libqrencode
+QR_CFLAGS ?= $(shell pkg-config --cflags libqrencode 2>/dev/null)
+QR_LIBS   ?= $(shell pkg-config --libs libqrencode 2>/dev/null)
+ifeq ($(QR_LIBS),)
+QR_LIBS := -lqrencode
+endif
+
 all: $(TARGET)
 
 $(TARGET): $(SRC)
 	@mkdir -p $(BINDIR)
-	$(CXX) $(CXXFLAGS) -o $(TARGET) $(SRC) $(LDFLAGS)
+	$(CXX) $(CXXFLAGS) -DUSE_SQLITE $(SQLITE_CFLAGS) -o $(TARGET) $(SRC) $(LDFLAGS) $(SQLITE_LIBS)
 
 # Build with MySQL support. Requires libmysqlclient-dev (Linux) or mysql (Homebrew).
 # Adjust MYSQL_CFLAGS / MYSQL_LIBS if needed (e.g. -I/usr/local/mysql/include -L/usr/local/mysql/lib).
@@ -39,6 +53,13 @@ with-sqlite: LDFLAGS += $(SQLITE_LIBS)
 with-sqlite: $(SRC)
 	@mkdir -p $(BINDIR)
 	$(CXX) $(CXXFLAGS) -o $(TARGET) $(SRC) $(LDFLAGS)
+
+# Build with QR code support (qrGenerate). Requires libqrencode. macOS: brew install qrencode
+with-qr: CXXFLAGS += -DUSE_QR $(QR_CFLAGS)
+with-qr: LDFLAGS += $(QR_LIBS)
+with-qr: $(SRC)
+	@mkdir -p $(BINDIR)
+	$(CXX) $(CXXFLAGS) -DUSE_SQLITE -DUSE_QR $(SQLITE_CFLAGS) $(QR_CFLAGS) -o $(TARGET) $(SRC) $(LDFLAGS) $(SQLITE_LIBS) $(QR_LIBS)
 
 # Build with GUI preview window (imagePreview). Requires SDL2. Linux: libsdl2-dev; macOS: brew install sdl2.
 SDL2_CFLAGS ?= $(shell pkg-config --cflags sdl2 2>/dev/null)
@@ -149,4 +170,4 @@ ci: MYSQL_CFLAGS :=
 ci: MYSQL_LIBS :=
 ci: $(TARGET)
 
-.PHONY: all run clean with-mysql with-sqlite with-gui install uninstall modules ci embedded
+.PHONY: all run clean with-mysql with-sqlite with-qr with-gui install uninstall modules ci embedded
