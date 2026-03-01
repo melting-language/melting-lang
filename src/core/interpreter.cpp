@@ -21,6 +21,8 @@
 #include <cstdlib>
 #include <random>
 #include <filesystem>
+#include <chrono>
+#include <thread>
 
 struct ReturnException : std::exception {
     Value value;
@@ -801,7 +803,11 @@ void Interpreter::callHandler() {
     Value prevThis = this_;
     this_ = obj;
     const MeltMethod& m = mit->second;
-    for (const auto& s : m.body->statements) execute(*s);
+    try {
+        for (const auto& s : m.body->statements) execute(*s);
+    } catch (const ReturnException&) {
+        /* handler returned; normal exit */
+    }
     this_ = prevThis;
 }
 
@@ -871,6 +877,18 @@ void Interpreter::registerBuiltins() {
     variables_["streamChunk"] = reg([](Interpreter* i, std::vector<Value> args) -> Value {
         if (!args.empty() && std::holds_alternative<std::string>(args[0]))
             i->streamChunkInternal(std::get<std::string>(args[0]));
+        return false;
+    });
+    variables_["sleep"] = reg([](Interpreter* i, std::vector<Value> args) -> Value {
+        (void)i;
+        double sec = 0;
+        if (!args.empty() && std::holds_alternative<double>(args[0]))
+            sec = std::get<double>(args[0]);
+        if (sec > 0) {
+            auto ms = static_cast<long long>(sec * 1000);
+            if (ms > 0)
+                std::this_thread::sleep_for(std::chrono::milliseconds(ms));
+        }
         return false;
     });
     variables_["getRequestHeader"] = reg([](Interpreter* i, std::vector<Value> args) -> Value {
@@ -1033,6 +1051,18 @@ void Interpreter::registerBuiltins() {
         variables_["streamChunk"] = reg([](Interpreter* i, std::vector<Value> args) -> Value {
             if (!args.empty() && std::holds_alternative<std::string>(args[0]))
                 i->setResponseBodyInternal(std::get<std::string>(args[0]), true);
+            return false;
+        });
+        variables_["sleep"] = reg([](Interpreter* i, std::vector<Value> args) -> Value {
+            (void)i;
+            double sec = 0;
+            if (!args.empty() && std::holds_alternative<double>(args[0]))
+                sec = std::get<double>(args[0]);
+            if (sec > 0) {
+                auto ms = static_cast<long long>(sec * 1000);
+                if (ms > 0)
+                    std::this_thread::sleep_for(std::chrono::milliseconds(ms));
+            }
             return false;
         });
         variables_["getRequestHeader"] = reg(httpStub);
