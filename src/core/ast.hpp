@@ -127,7 +127,8 @@ struct ExprStmt : Stmt {
 
 struct ImportStmt : Stmt {
     std::string path;
-    ImportStmt(std::string p) : path(std::move(p)) {}
+    std::string asName;  // if non-empty: bind module namespace to this variable (import "x.melt" as M;)
+    ImportStmt(std::string p, std::string as = std::string()) : path(std::move(p)), asName(std::move(as)) {}
 };
 
 struct PrintStmt : Stmt {
