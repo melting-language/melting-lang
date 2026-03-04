@@ -1,9 +1,33 @@
 CXX = g++
+
 # Include all source dirs so that #include "lexer.hpp" etc. resolve from subdirs
-CXXFLAGS = -std=c++17 -Wall -I src -I src/core -I src/http -I src/mysql -I src/sqlite -I src/gui -I src/qr
-SRC = src/main.cpp src/core/lexer.cpp src/core/parser.cpp src/core/interpreter.cpp src/core/module_loader.cpp src/http/http_server.cpp src/mysql/mysql_builtin.cpp src/sqlite/sqlite_builtin.cpp src/qr/qr_builtin.cpp
-SRC_EMBEDDED = src/main.cpp src/core/lexer.cpp src/core/parser.cpp src/core/interpreter.cpp src/core/module_loader.cpp
+CXXFLAGS = -std=c++17 -Wall \
+		   -I src \
+		   -I src/core \
+		   -I src/http \
+		   -I src/mysql \
+		   -I src/sqlite \
+		   -I src/gui \
+		   -I src/qr
+
+SRC = src/main.cpp \
+	  src/core/lexer.cpp \
+	  src/core/parser.cpp \
+	  src/core/interpreter.cpp \
+	  src/core/module_loader.cpp \
+	  src/http/http_server.cpp \
+	  src/mysql/mysql_builtin.cpp \
+	  src/sqlite/sqlite_builtin.cpp \
+	  src/qr/qr_builtin.cpp
+
+SRC_EMBEDDED = src/main.cpp \
+			   src/core/lexer.cpp \
+			   src/core/parser.cpp \
+			   src/core/interpreter.cpp \
+			   src/core/module_loader.cpp
+
 BINDIR = bin
+
 TARGET = $(BINDIR)/melt
 TARGET_EMBEDDED = $(BINDIR)/melt-embedded
 # Linux needs -ldl for dlopen; macOS has it in libSystem
