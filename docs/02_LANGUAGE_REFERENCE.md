@@ -234,10 +234,12 @@ let sum = obj.add(3, 5);  // sum is 8
 
 ```melt
 import "path.melt";
+import "path.melt" as M;
 ```
 
 - **path** is relative to the **directory of the file that contains this import**.
-- The imported file is executed once; its top-level variables and classes are available in the current file (shared global scope).
+- **Without `as`:** The imported file is executed once; its top-level variables and classes are available in the current file (shared global scope).
+- **With `as M`:** The module is run in its own scope and its exports (top-level variables and classes) are bound to the single variable **M**. Use the class via **M.ClassName** (e.g. `M.MyClass(1, 2)`). One line: import and define the namespace variable.
 - Circular or repeated imports of the same resolved path are skipped.
 
 Example (from a file in `examples/web_project_mvc/`):

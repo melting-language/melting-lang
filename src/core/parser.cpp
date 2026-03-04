@@ -67,9 +67,16 @@ std::unique_ptr<Stmt> Parser::importStatement() {
     if (peek().type != TokenType::String)
         throw std::runtime_error("Expected string path after 'import'");
     std::string path = advance().value;
+    std::string asName;
+    if (check(TokenType::Identifier) && peek().value == "as") {
+        advance();
+        if (peek().type != TokenType::Identifier)
+            throw std::runtime_error("Expected variable name after 'as'");
+        asName = advance().value;
+    }
     if (!match(TokenType::Semicolon))
         throw std::runtime_error("Expected ';' after import path");
-    return std::make_unique<ImportStmt>(std::move(path));
+    return std::make_unique<ImportStmt>(std::move(path), std::move(asName));
 }
 
 std::unique_ptr<Stmt> Parser::classStatement() {

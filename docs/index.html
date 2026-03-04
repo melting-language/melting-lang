@@ -345,10 +345,11 @@ let obj = Name(1, 2);
 obj.getX();  // returns 1</code></pre>
         <p><code>init</code> is the constructor. <code>this</code> refers to the current object. <code>return expr;</code> or <code>return;</code> inside a method.</p>
         <h3 id="lang-arrays">Arrays</h3>
-        <p>Literal <code>[a, b, c]</code>. Index: <code>arr[i]</code>, <code>arr[i] = value</code>. Built-ins: <code>arrayCreate</code>, <code>arrayPush</code>, <code>arrayGet</code>, <code>arraySet</code>, <code>arrayLength</code>.</p>
+        <p>Literal <code>[a, b, c]</code>; elements can be any type (numbers, strings, nested arrays, closures). Index: <code>arr[i]</code>, <code>arr[i] = value</code>. Built-ins: <code>arrayCreate()</code> / <code>arrayCreate(v1, v2, ...)</code> (optional initial elements), <code>arrayPush</code>, <code>arrayGet</code>, <code>arraySet</code>, <code>arrayLength</code>.</p>
         <h3 id="lang-import">Import</h3>
-        <pre><code>import "path.melt";</code></pre>
-        <p>Path is relative to the importing file’s directory. One execution per resolved path; globals (variables, classes) are shared.</p>
+        <pre><code>import "path.melt";
+import "path.melt" as M;</code></pre>
+        <p>Path is relative to the importing file’s directory. One execution per resolved path. <strong>Without <code>as</code>:</strong> globals (variables, classes) from the file are shared in the current scope. <strong>With <code>as M</code>:</strong> the module runs in its own scope and its exports are bound to the single variable <code>M</code> (e.g. <code>M.MyClass(1, 2)</code>).</p>
         <h3 id="lang-truthiness">Truthiness</h3>
         <p>Falsy: <code>false</code>, <code>0</code>, <code>""</code>, empty array, nothing. Everything else is truthy.</p>
         <h3 id="lang-keywords">Keywords &amp; literals</h3>
@@ -391,7 +392,7 @@ obj.getX();  // returns 1</code></pre>
         <h3 id="builtins-arrays">Arrays</h3>
         <table>
           <tr><th>Function</th><th>Description</th></tr>
-          <tr><td><code>arrayCreate()</code></td><td>New empty array.</td></tr>
+          <tr><td><code>arrayCreate()</code> / <code>arrayCreate(v1, v2, ...)</code></td><td>New array; with arguments, initializes with those elements (e.g. closures).</td></tr>
           <tr><td><code>arrayPush(arr, value)</code></td><td>Append; returns length.</td></tr>
           <tr><td><code>arrayGet(arr, i)</code></td><td>Element at index <code>i</code>.</td></tr>
           <tr><td><code>arraySet(arr, i, value)</code></td><td>Set element.</td></tr>
@@ -830,6 +831,12 @@ print myOtherFunc("hello");</code></pre>
           <tr><td>file_io.melt</td><td>readFile, writeFile.</td></tr>
           <tr><td>embedded_system/main.melt</td><td>Sample embedded-style loop (sensor–logic–actuator); use with <code>./bin/melt-embedded</code>.</td></tr>
           <tr><td>array_demo.melt</td><td>Arrays and built-ins.</td></tr>
+          <tr><td>array_closures_demo.melt</td><td>Arrays with closures (literal and <code>arrayCreate</code>), callbacks.</td></tr>
+          <tr><td>array_create_with_closures.melt</td><td><code>arrayCreate</code> with initial elements (e.g. lambdas).</td></tr>
+          <tr><td>import_as_demo.melt</td><td><code>import "path.melt" as M;</code> — bind module to one variable, use <code>M.MyClass</code>.</td></tr>
+          <tr><td>lambda_demo.melt</td><td>First-class functions, <code>fn(a, b) { ... }</code>, closures.</td></tr>
+          <tr><td>object_create_demo.melt</td><td><code>objectCreate()</code>, <code>obj[key]</code>, <code>obj[key] = value</code>, jsonEncode.</td></tr>
+          <tr><td>php_array_to_melt.melt</td><td>PHP-style associative array → Melt objects (<code>objectCreate</code>, nested structure).</td></tr>
           <tr><td>foreach_demo.melt</td><td><code>foreach</code> over arrays, objects, and SQL row arrays.</td></tr>
           <tr><td>json_demo.melt</td><td>jsonEncode, jsonDecode.</td></tr>
           <tr><td>encryption_demo.melt</td><td>Base64, xorCipher.</td></tr>

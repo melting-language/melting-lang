@@ -1238,8 +1238,9 @@ void Interpreter::registerBuiltins() {
     });
     variables_["arrayCreate"] = reg([](Interpreter* i, std::vector<Value> args) -> Value {
         (void)i;
-        (void)args;
-        return std::make_shared<MeltArray>();
+        auto arr = std::make_shared<MeltArray>();
+        for (Value& v : args) arr->data.push_back(std::move(v));
+        return arr;
     });
     variables_["arrayPush"] = reg([](Interpreter* i, std::vector<Value> args) -> Value {
         (void)i;
@@ -1768,7 +1769,12 @@ void Interpreter::executeExprStmt(const ExprStmt& stmt) {
 
 void Interpreter::executeImport(const ImportStmt& stmt) {
     std::string resolved = resolveImportPath(stmt.path);
-    if (importedPaths_.count(resolved)) return;
+    if (importedPaths_.count(resolved)) {
+        if (!stmt.asName.empty()) {
+            throw std::runtime_error("import \"...\" as name cannot be used after the module was already imported without 'as'");
+        }
+        return;
+    }
     importedPaths_.insert(resolved);
     std::string source = readFile(resolved);
     Lexer lexer(source);
@@ -1777,7 +1783,22 @@ void Interpreter::executeImport(const ImportStmt& stmt) {
     auto parsed = parser.parse();
     std::string prevDir = currentDir_;
     currentDir_ = dirname(resolved);
-    for (const auto& s : parsed) execute(*s);
+
+    if (stmt.asName.empty()) {
+        for (const auto& s : parsed) execute(*s);
+    } else {
+        auto savedVars = variables_;
+        variables_ = savedVars;  // run module in a copy of current scope
+        for (const auto& s : parsed) execute(*s);
+        auto ns = std::make_shared<MeltObject>();
+        ns->klass = getJsonObjectClass();
+        for (const auto& kv : variables_)
+            if (savedVars.count(kv.first) == 0)
+                setField(*ns, kv.first, kv.second);
+        variables_ = std::move(savedVars);
+        variables_[stmt.asName] = ns;
+    }
+
     currentDir_ = prevDir;
 }
 

@@ -66,7 +66,7 @@ Paths in `readFile` / `writeFile` are resolved relative to the **entry script’
 
 | Function | Description |
 |----------|-------------|
-| `arrayCreate()` | Returns a new empty array. |
+| `arrayCreate()` / `arrayCreate(v1, v2, ...)` | Returns a new array; with arguments, initializes with those elements (e.g. closures). |
 | `arrayPush(arr, value)` | Appends `value` to `arr`. Returns the new length (number). |
 | `arrayGet(arr, i)` | Returns the element at index `i` (0-based). Returns a falsy value if out of range. |
 | `arraySet(arr, i, value)` | Sets `arr[i] = value`; resizes if needed. Returns a truthy value. |
