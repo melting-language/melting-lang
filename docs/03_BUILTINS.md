@@ -40,7 +40,16 @@ Formatting, random numbers, and basic math helpers.
 
 **Loadable extensions:** If `extension` is set (in melt.ini or melt.config), Melt loads shared libraries from `binDir/extension_dir/name.suffix` (`.so` Linux, `.dylib` macOS, `.dll` Windows) and calls **`melt_register(Interpreter*)`** in each. Extensions register built-ins via `interp->registerBuiltin("name", fn)`.
 
-**Developing extensions:** Build a shared library that exports `extern "C" void melt_register(Interpreter* interp);` and call `interp->registerBuiltin("myFunc", ...)` for each built-in. Put the library in `bin/modules/` (or the dir set by `extension_dir`) and add its name to `extension` in melt.ini (e.g. `extension = math`).
+**Developing extensions:** Build a shared library that exports `extern "C" void melt_register(Interpreter* interp);` and call `interp->registerBuiltin("myFunc", ...)` for each built-in. Put the library in the `modules` directory next to the `melt` binary and add its name to `extension` in melt.ini (e.g. `extension = example`).
+
+**Compiling extensions:** From the project root, build the interpreter and extensions with:
+
+```bash
+cmake -B build
+cmake --build build
+```
+
+This produces `build/melt` and, in `build/modules/`, the extension shared libraries (e.g. `example.so` on Linux, `example.dylib` on macOS, `example.dll` on Windows). When you run `./build/melt`, the interpreter looks for extensions in `build/modules/` by default (`extension_dir = modules`). Create `build/melt.ini` (or a project `melt.config`) and set `extension = example` (or `os`, `ffmpeg`, `headless_browser`, `image_optimize`) to load an extension. To add your own extension, add a new `add_melt_extension(myname path/to/myname.cpp)` in `CMakeLists.txt` and implement `melt_register` in your source.
 
 | Function | Description |
 |----------|-------------|

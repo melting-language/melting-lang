@@ -14,14 +14,15 @@ Install: `brew install ffmpeg` (macOS), `apt install ffmpeg` (Debian/Ubuntu), or
 From repo root:
 
 ```bash
-make modules
+cmake -B build
+cmake --build build
 ```
 
-This builds `bin/modules/ffmpeg.so` (Linux), `ffmpeg.dylib` (macOS), or `ffmpeg.dll` (Windows).
+This builds `build/modules/ffmpeg.so` (Linux), `ffmpeg.dylib` (macOS), or `ffmpeg.dll` (Windows).
 
 ## Enable
 
-In `bin/melt.ini` or project `melt.config`:
+In `build/melt.ini` (next to `build/melt`) or project `melt.config`:
 
 ```ini
 extension_enabled = 1

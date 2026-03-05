@@ -11,14 +11,15 @@ Native Melt extension that adds image optimization helpers:
 From project root:
 
 ```bash
-make modules
+cmake -B build
+cmake --build build
 ```
 
-This builds `bin/modules/image_optimize.<so|dylib|dll>`.
+This builds `build/modules/image_optimize.<so|dylib|dll>`.
 
 ## Enable
 
-In `bin/melt.ini` or project `melt.config`:
+In `build/melt.ini` (next to `build/melt`) or project `melt.config`:
 
 ```ini
 extension_dir = modules
