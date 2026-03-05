@@ -21,9 +21,9 @@ static Value osVersion(Interpreter*, std::vector<Value>) {
 static Value osName(Interpreter*, std::vector<Value>) {
 #if defined(_WIN32) || defined(_WIN64)
     return Value(std::string("windows"));
-#elif defined(__APPLE__)
+#elif defined(_APPLE_)
     return Value(std::string("macos"));
-#elif defined(__linux__)
+#elif defined(_linux_)
     return Value(std::string("linux"));
 #else
     return Value(std::string("unknown"));
