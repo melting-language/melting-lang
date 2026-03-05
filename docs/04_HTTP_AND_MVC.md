@@ -30,7 +30,7 @@ setHandler("App");
 listen(8080);
 ```
 
-Run: `./bin/melt examples/server.melt` then open http://localhost:8080/
+Run: `./build/melt examples/server.melt` then open http://localhost:8080/
 
 ### Serving static files
 
@@ -47,7 +47,7 @@ The **`examples/web_project_mvc/`** folder is a full example: config, routes, co
 From the **project root**:
 
 ```bash
-./bin/melt examples/web_project_mvc/main.melt
+./build/melt examples/web_project_mvc/main.melt
 ```
 
 Then open http://localhost:8080/ (or the port set in config).
@@ -98,7 +98,7 @@ Only paths under `/js/`, `/css/`, `/images/` are served from `public/`.
 
 ### Database migrations
 
-- **Run migrations:** From project root, `./bin/melt examples/web_project_mvc/run_migrations.melt`. Requires Melt built with **`make with-mysql`** and MySQL running.
+- **Run migrations:** From project root, `./build/melt examples/web_project_mvc/run_migrations.melt`. Requires Melt built with **`-DUSE_MYSQL=ON`** and MySQL running.
 - **Add a migration:** (1) Add **migrations/NNN_name.sql** with one SQL statement. (2) Append `"NNN_name.sql"` to the **migrationFiles** array in **run_migrations.melt**.
 - The runner creates **`_migrations`** and records each run migration; already-run files are skipped.
 
@@ -113,7 +113,7 @@ The **`examples/official_website_using_melt/`** folder is the **full official we
 From the **project root**:
 
 ```bash
-./bin/melt examples/official_website_using_melt/main.melt
+./build/melt examples/official_website_using_melt/main.melt
 ```
 
 Then open **http://localhost:4000** in your browser.
@@ -160,9 +160,9 @@ Static assets under `public/` are served at `/css/`, `/js/`, `/images/` via `ser
 ### Blog and database
 
 - **Table:** `blog_posts` (id, title, body, published, created_at). All posts are shown on `/blog`; unpublished ones display a “Draft” badge.
-- **Migrations:** Build Melt with MySQL (`make with-mysql`), ensure MySQL is running and the database exists, then from repo root:
+- **Migrations:** Build Melt with MySQL (`-DUSE_MYSQL=ON`), ensure MySQL is running and the database exists, then from repo root:
   ```bash
-  ./bin/melt examples/official_website_using_melt/run_migrations.melt
+  ./build/melt examples/official_website_using_melt/run_migrations.melt
   ```
 - **Config:** Edit **config/database.melt** (host, user, password, database) to match your MySQL setup.
 - **Create a post:** Open http://localhost:4000/blog/new, fill title and body, optionally check “Publish”, and submit. Posts are inserted into `blog_posts`. Use `chr(1)` when splitting `mysqlFetchRow()` output (see Built-ins).

@@ -5,6 +5,5 @@
     <mapping directory="$PROJECT_DIR$/examples" vcs="Git" />
     <mapping directory="$PROJECT_DIR$/scripts/examples-repo-push-me" vcs="Git" />
     <mapping directory="$PROJECT_DIR$/scripts/syntax-highlighter-repo-push-me" vcs="Git" />
-    <mapping directory="$PROJECT_DIR$/syntax_highlighter_extension" vcs="Git" />
   </component>
 </project>

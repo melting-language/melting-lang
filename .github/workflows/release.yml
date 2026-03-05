@@ -33,17 +33,28 @@ jobs:
           git fetch --depth 1 origin "${{ github.sha }}":refs/heads/ci
           git checkout ci
 
-      - name: Build (Make)
-        run: make ci CXX=${{ matrix.cxx }}
-        env:
-          MYSQL_CFLAGS: ""
-          MYSQL_LIBS: ""
+      - name: Install dependencies (Ubuntu)
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y cmake build-essential pkg-config \
+            libsdl2-dev libsqlite3-dev libqrencode-dev
+
+      - name: Install dependencies (macOS)
+        if: runner.os == 'macOS'
+        run: |
+          brew install cmake pkg-config sdl2 sqlite qrencode
+
+      - name: Build (CMake)
+        run: |
+          cmake -B build -DUSE_MYSQL=OFF -DCMAKE_CXX_COMPILER=${{ matrix.cxx }}
+          cmake --build build
 
       - name: Upload release binary
         uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.artifact_name }}
-          path: bin/melt
+          path: build/
 
   build-windows:
     runs-on: windows-latest
@@ -119,14 +130,11 @@ jobs:
       - name: Install build dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y debhelper build-essential
+          sudo apt-get install -y debhelper build-essential cmake pkg-config \
+            libsdl2-dev libsqlite3-dev libqrencode-dev
 
       - name: Build Debian package
-        env:
-          MYSQL_CFLAGS: ""
-          MYSQL_LIBS: ""
-        run: |
-          dpkg-buildpackage -us -uc -b -d
+        run: dpkg-buildpackage -us -uc -b -d
 
       - name: Copy .deb into workspace
         run: |

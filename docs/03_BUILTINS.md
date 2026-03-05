@@ -33,7 +33,7 @@ Formatting, random numbers, and basic math helpers.
 
 **Module search:** `import "path"` resolves in order: (1) current file directory, (2) each directory in the **module path** (from `melt.config`, `melt.ini`, or `addModulePath`).
 
-**Global config (php.ini-style):** Place **`melt.ini`** in the same directory as the `melt` binary (e.g. `bin/melt.ini`). It is read first; then project **`melt.config`** (next to the entry script) is merged. Format for both: `key = value`, `#` comments.
+**Global config (php.ini-style):** Place **`melt.ini`** in the same directory as the `melt` binary (e.g. `build/melt.ini`). It is read first; then project **`melt.config`** (next to the entry script) is merged. Format for both: `key = value`, `#` comments.
 
 - **melt.ini (global):** Paths are relative to the **bin** directory. Keys: `modulePath`, `extension_dir` (default `modules`), `extension` (comma-separated list of extension names to load).
 - **melt.config (project):** Paths relative to the project directory. `modulePath` is **appended** to the list. Other keys overwrite global.
@@ -108,9 +108,9 @@ Draw into an RGB image buffer and save as a PPM file (open in a viewer or conver
 | `imageSetPixel(x, y, r, g, b)` | Sets one pixel. Or `imageSetPixel(x, y, gray)`. |
 | `imageDrawLine(x1, y1, x2, y2, r, g, b)` | Draws a line (Bresenham). r,g,b optional (default white). |
 | `imageSavePpm(path)` | Saves the image as PPM P6. Path relative to script dir. Returns truthy on success. |
-| `imagePreview()` | Opens a window showing the current image (blocks until window is closed). **Requires** Melt built with `make with-gui` (SDL2). Without it, throws an error. Close with window button or Escape/Q. |
+| `imagePreview()` | Opens a window showing the current image (blocks until window is closed). **Requires** Melt built with default build (SDL2) (SDL2). Without it, throws an error. Close with window button or Escape/Q. |
 
-Example: `examples/gui_render_demo.melt`. To use the preview window: `make with-gui` (install SDL2 first: Linux `libsdl2-dev`, macOS `brew install sdl2`).
+Example: `examples/gui_render_demo.melt`. To use the preview window: default build (SDL2) (install SDL2 first: Linux `libsdl2-dev`, macOS `brew install sdl2`).
 
 ---
 
@@ -219,7 +219,7 @@ Example: `examples/mcp_server.melt`. Run with e.g. `echo '{"jsonrpc":"2.0","id":
 
 ## MySQL (optional)
 
-Available only when Melt is built with **`make with-mysql`** and the MySQL client library.
+Available only when Melt is built with **`-DUSE_MYSQL=ON`** and the MySQL client library.
 
 | Function | Description |
 |----------|-------------|
@@ -235,7 +235,7 @@ One connection per interpreter; open once, run queries, then close.
 
 ## SQLite (optional)
 
-Available only when Melt is built with **`make with-sqlite`**.
+Available only when Melt is built with default build (SQLite included).
 
 | Function | Description |
 |----------|-------------|

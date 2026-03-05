@@ -19,7 +19,7 @@ A minimal interpreted, object-oriented programming language built in C++.
 - **Properties**: `this.x = value;`, `obj.field`, `obj.field = value;`
 - **Import**: `import "path.melt";` — run another file (path relative to current file); classes and variables are shared.
 - **HTTP server (backend)**: built-ins `getRequestPath()`, `getRequestMethod()`, `getRequestBody()`, `setResponseBody(str)`, `setResponseStatus(code)`, `setResponseContentType(str)`, `servePublic(path)` (serve files from `public/js`, `public/css`, `public/images`), `setHandler("ClassName")`, `listen(port)`. Define a class with `method handle()` and use it as the request handler.
-- **MySQL (optional)**: build with `make with-mysql`. Built-ins: `mysqlConnect(host, user, password, database)` → true/false, `mysqlQuery(sql)` → true/false, `mysqlFetchRow()` → next row as tab-separated string (or "" when no more), `mysqlClose()`.
+- **MySQL (optional)**: build with `-DUSE_MYSQL=ON`. Built-ins: `mysqlConnect(host, user, password, database)` → true/false, `mysqlQuery(sql)` → true/false, `mysqlFetchRow()` → next row as tab-separated string (or "" when no more), `mysqlClose()`.
 - **File I/O**: `readFile(path)` → file contents as string (or "" on error), `writeFile(path, content)` → true/false.
 - **Arrays**: Literal `[1, 2, 3]`, index `arr[i]`, assignment `arr[i] = value`, and built-ins `arrayCreate()`, `arrayPush(arr, value)`, `arrayGet(arr, i)`, `arraySet(arr, i, value)`, `arrayLength(arr)`.
 - **JSON**: `jsonEncode(value)` → JSON string; `jsonDecode(str)` → value (arrays and objects). Decoded objects support `obj.field` access.
@@ -36,29 +36,28 @@ A minimal interpreted, object-oriented programming language built in C++.
 ## Build
 
 ```bash
-make
+cmake -B build
+cmake --build build
 ```
 
-This creates the **`bin/melt`** executable (the `bin/` directory is created if needed).
-
-For a smaller binary without HTTP server, MySQL, or GUI (e.g. for embedded or resource-constrained targets), use **`make embedded`** → **`bin/melt-embedded`**. Scripts that call `listen()`, MySQL built-ins, or `imagePreview()` will get a clear runtime error.
+This creates the **`build/melt`** executable. Optional: `-DUSE_MYSQL=ON` to enable MySQL built-ins. The default build includes SQLite, SDL2 (GUI), and QR.
 
 ## Install (binary)
 
 Install the `melt` binary so you can run it from anywhere:
 
 ```bash
-make install
+cmake --install build
 ```
 
-This installs to `/usr/local/bin` by default. Use a different prefix if needed:
+This installs to `/usr/local` by default. Use a different prefix:
 
 ```bash
-make install PREFIX=/usr          # system-wide (e.g. Linux)
-make install PREFIX=$(HOME)/.local # user-only (add ~/.local/bin to PATH)
+cmake --install build --prefix /usr
+cmake --install build --prefix $(HOME)/.local   # user-only (add ~/.local/bin to PATH)
 ```
 
-To remove: `make uninstall` (or `make uninstall PREFIX=...` if you changed it).
+Or use the Makefile wrapper: `make install` / `make install PREFIX=/usr`.
 
 **Install from .deb (Linux)** — For each release we build a Debian package. Download `meltlang_*_amd64.deb` from the [GitHub Releases](https://github.com/melting-language/melting-lang/releases) page, then:
 
@@ -70,16 +69,16 @@ After that, run `melt script.melt` from anywhere.
 
 ## Run
 
-The compiled binary is `bin/melt`. From the project root:
+The compiled binary is `build/melt`. From the project root:
 
 ```bash
-./bin/melt example.melt
+./build/melt example.melt
 ```
 
 Or run without arguments to execute a built-in demo:
 
 ```bash
-./bin/melt
+./build/melt
 ```
 
 ## Example
@@ -117,7 +116,7 @@ while (i < 3) {
 ## Backend HTTP server
 
 ```bash
-./bin/melt examples/server.melt
+./build/melt examples/server.melt
 ```
 
 Then open http://localhost:8080/ in a browser. The handler class must define `method handle()` and use the built-ins above to read the request and set the response.
@@ -127,8 +126,9 @@ Then open http://localhost:8080/ in a browser. The handler class must define `me
 Install the MySQL client library (e.g. `libmysqlclient-dev` on Ubuntu, `mysql` on Homebrew), then:
 
 ```bash
-make with-mysql
-./bin/melt examples/mysql_example.melt
+cmake -B build -DUSE_MYSQL=ON
+cmake --build build
+./build/melt examples/mysql_example.melt
 ```
 
 Edit `examples/mysql_example.melt` and set host, user, password, and database. Use `mysqlConnect(host, user, password, db)`, then `mysqlQuery("SELECT ...")`, then loop with `mysqlFetchRow()` to get each row as a tab-separated string. Call `mysqlClose()` when done.
@@ -136,7 +136,7 @@ Edit `examples/mysql_example.melt` and set host, user, password, and database. U
 ## Multi-file / import example
 
 ```bash
-./bin/melt examples/multi_file/main.melt
+./build/melt examples/multi_file/main.melt
 ```
 
 `examples/multi_file/` has `point.melt`, `greeter.melt`, and `main.melt` that imports them.
@@ -144,7 +144,7 @@ Edit `examples/mysql_example.melt` and set host, user, password, and database. U
 ## OOP Example
 
 ```bash
-./bin/melt example_oop.melt
+./build/melt example_oop.melt
 ```
 
 See `example_oop.melt` for a full example with `Point` and `Greeter` classes.

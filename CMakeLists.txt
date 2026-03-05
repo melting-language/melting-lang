@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.31)
+cmake_minimum_required(VERSION 3.16)
 
 project(melt VERSION 1.3.2 LANGUAGES CXX)
 
@@ -6,7 +6,11 @@ set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 set(BUILD_SHARED_LIBS OFF)
-set(CMAKE_BUILD_TYPE Debug)
+if(NOT CMAKE_BUILD_TYPE)
+    set(CMAKE_BUILD_TYPE Debug)
+endif()
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
+
 add_compile_options(-Wall -Wextra -Wpedantic)
 
 
@@ -89,3 +93,6 @@ target_link_libraries(${PROJECT_NAME}
 if(USE_MYSQL)
     target_link_libraries(${PROJECT_NAME} PRIVATE ${MYSQL_LDFLAGS})
 endif()
+
+# Install (e.g. cmake --install build --prefix /usr/local)
+install(TARGETS ${PROJECT_NAME} RUNTIME DESTINATION bin)

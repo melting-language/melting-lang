@@ -220,11 +220,10 @@
         <div class="quick-ref">
           <h3>Quick reference</h3>
           <ul>
-            <li><strong>Run:</strong> <code>./bin/melt script.melt</code></li>
-            <li><strong>Build:</strong> <code>make</code> → <code>bin/melt</code></li>
-            <li><strong>With MySQL:</strong> <code>make with-mysql</code></li>
-            <li><strong>Embedded (smaller):</strong> <code>make embedded</code> → <code>bin/melt-embedded</code></li>
-            <li><strong>Install:</strong> <code>make install</code></li>
+            <li><strong>Run:</strong> <code>./build/melt script.melt</code></li>
+            <li><strong>Build:</strong> <code>cmake -B build &amp;&amp; cmake --build build</code> → <code>build/melt</code></li>
+            <li><strong>With MySQL:</strong> <code>cmake -B build -DUSE_MYSQL=ON</code></li>
+            <li><strong>Install:</strong> <code>cmake --install build</code></li>
             <li><strong>Extension:</strong> <code>.melt</code></li>
           </ul>
         </div>
@@ -234,16 +233,15 @@
         <h2>Getting Started</h2>
         <h3>Build</h3>
         <p>From the project root:</p>
-        <pre><code>make</code></pre>
-        <p>This produces <strong>bin/melt</strong>. For MySQL support:</p>
-        <pre><code>make with-mysql</code></pre>
-        <p>For a smaller binary without HTTP server, MySQL, or GUI (embedded profile): <code>make embedded</code> → <strong>bin/melt-embedded</strong>. Scripts that call <code>listen()</code>, MySQL built-ins, or <code>imagePreview()</code> will get a clear runtime error.</p>
+        <pre><code>cmake -B build
+cmake --build build</code></pre>
+        <p>This produces <strong>build/melt</strong>. For MySQL support: <code>cmake -B build -DUSE_MYSQL=ON</code>.</p>
         <h3>Install (optional)</h3>
-        <pre><code>make install
-make install PREFIX=$(HOME)/.local   # user-only</code></pre>
+        <pre><code>cmake --install build
+cmake --install build --prefix $(HOME)/.local   # user-only</code></pre>
         <h3>Run a program</h3>
-        <pre><code>./bin/melt path/to/script.melt
-./bin/melt examples/hello.melt</code></pre>
+        <pre><code>./build/melt path/to/script.melt
+./build/melt examples/hello.melt</code></pre>
         <h3>First program</h3>
         <pre><code>let name = "Melt";
 print "Hello, ";
@@ -375,7 +373,7 @@ obj.getX();  // returns 1</code></pre>
           <tr><td><code>parseNumber(str)</code></td><td>Parse string to number; returns 0 if invalid.</td></tr>
         </table>
         <h3 id="builtins-modules-config">Modules and central config</h3>
-        <p><strong>Global:</strong> <code>bin/melt.ini</code> (php.ini-style), read first. <strong>Project:</strong> <code>melt.config</strong> next to entry script; merged after. Format: <code>key = value</code>, <code>#</code> comments. Keys: <code>modulePath</code>, <code>extension_dir</code> (default <code>modules</code>), <code>extension</code> (comma-separated names of loadable .so/.dylib/.dll). <code>import "name"</code> resolves: current dir, then each modulePath dir. Loadable extensions export <code>melt_register(Interpreter*)</code> and call <code>interp-&gt;registerBuiltin(...)</code>.</p>
+        <p><strong>Global:</strong> <code>build/melt.ini</code> (php.ini-style), read first. <strong>Project:</strong> <code>melt.config</strong> next to entry script; merged after. Format: <code>key = value</code>, <code>#</code> comments. Keys: <code>modulePath</code>, <code>extension_dir</code> (default <code>modules</code>), <code>extension</code> (comma-separated names of loadable .so/.dylib/.dll). <code>import "name"</code> resolves: current dir, then each modulePath dir. Loadable extensions export <code>melt_register(Interpreter*)</code> and call <code>interp-&gt;registerBuiltin(...)</code>.</p>
         <table>
           <tr><th>Function</th><th>Description</th></tr>
           <tr><td><code>addModulePath(dir)</code></td><td>Add directory to module search path (relative to current script dir).</td></tr>
@@ -400,7 +398,7 @@ obj.getX();  // returns 1</code></pre>
         <h3 id="builtins-vectors">Vectors (math)</h3>
         <p>2D/3D vectors: <code>vectorCreate2(x, y)</code>, <code>vectorCreate3(x, y, z)</code>, <code>vectorAdd</code>, <code>vectorSub</code>, <code>vectorScale</code>, <code>vectorLength</code>, <code>vectorDot</code>, <code>vectorCross</code> (3D), <code>vectorX</code>/<code>vectorY</code>/<code>vectorZ</code>, <code>vectorDim</code>.</p>
         <h3 id="builtins-gui-render">GUI render (image buffer)</h3>
-        <p><code>imageCreate(w, h)</code>, <code>imageFill(r, g, b)</code>, <code>imageSetPixel(x, y, r, g, b)</code>, <code>imageDrawLine(...)</code>, <code>imageSavePpm(path)</code>, <code>imagePreview()</code> (window; requires <code>make with-gui</code> and SDL2).</p>
+        <p><code>imageCreate(w, h)</code>, <code>imageFill(r, g, b)</code>, <code>imageSetPixel(x, y, r, g, b)</code>, <code>imageDrawLine(...)</code>, <code>imageSavePpm(path)</code>, <code>imagePreview()</code> (window; requires <code>default build (SDL2)</code> and SDL2).</p>
         <h3 id="builtins-strings">Strings</h3>
         <table>
           <tr><th>Function</th><th>Description</th></tr>
@@ -486,7 +484,7 @@ obj.getX();  // returns 1</code></pre>
           <tr><td><code>setMcpHandler("ClassName")</code></td><td>Set MCP handler class (must have <code>handle()</code>).</td></tr>
           <tr><td><code>runMcp()</code></td><td>Block: read line → call handler → write response line; exits when stdin closed.</td></tr>
         </table>
-        <h3 id="builtins-mysql">MySQL (optional, <code>make with-mysql</code>)</h3>
+        <h3 id="builtins-mysql">MySQL (optional, <code>-DUSE_MYSQL=ON</code>)</h3>
         <table>
           <tr><th>Function</th><th>Description</th></tr>
           <tr><td><code>mysqlConnect(host, user, password, database)</code></td><td>Connect. Returns truthy/falsy.</td></tr>
@@ -496,7 +494,7 @@ obj.getX();  // returns 1</code></pre>
           <tr><td><code>mysqlClose()</code></td><td>Close connection.</td></tr>
         </table>
         <h3 id="builtins-sqlite">SQLite (included in default build)</h3>
-        <p>The default <code>make</code> builds with SQLite so <code>sqliteOpen</code>, <code>sqliteExec</code>, and the other SQLite built-ins are available without a separate target. You can still use <code>make with-sqlite</code> for an explicit SQLite build.</p>
+        <p>The default <code>make</code> builds with SQLite so <code>sqliteOpen</code>, <code>sqliteExec</code>, and the other SQLite built-ins are available without a separate target. You can still use <code>default build (SQLite)</code> for an explicit SQLite build.</p>
         <table>
           <tr><th>Function</th><th>Description</th></tr>
           <tr><td><code>sqliteOpen(path)</code></td><td>Open/create SQLite database file. Returns truthy/falsy.</td></tr>
@@ -506,14 +504,14 @@ obj.getX();  // returns 1</code></pre>
           <tr><td><code>sqliteFetchAll()</code></td><td>All remaining rows as array of rows, e.g. <code>[["1","Alice"],["2","Bob"]]</code>.</td></tr>
           <tr><td><code>sqliteClose()</code></td><td>Close database and finalize active query.</td></tr>
         </table>
-        <h3 id="builtins-qr">QR code (optional, <code>make with-qr</code>)</h3>
-        <p>Requires <strong>libqrencode</strong>. Build: <code>make with-qr</code> (e.g. <code>brew install qrencode</code> on macOS).</p>
+        <h3 id="builtins-qr">QR code (optional, <code>default build (QR)</code>)</h3>
+        <p>Requires <strong>libqrencode</strong>. Build: <code>default build (QR)</code> (e.g. <code>brew install qrencode</code> on macOS).</p>
         <table>
           <tr><th>Function</th><th>Description</th></tr>
           <tr><td><code>qrGenerate(text [, cellSize])</code></td><td>Encode <code>text</code> as a QR code; returns SVG string. Optional <code>cellSize</code> (1–32, default 4) is pixels per module. Use in HTML: <code>{!! qrGenerate("https://example.com") !!}</code> or serve with <code>setResponseContentType("image/svg+xml")</code>.</td></tr>
         </table>
         <h3 id="builtins-headless-browser">Headless browser (extension, <code>extension = headless_browser</code>)</h3>
-        <p>Requires Chrome, Chromium, or Edge. Build: <code>make modules</code>; enable in <code>melt.config</code> or <code>melt.ini</code> with <code>extension = headless_browser</code>.</p>
+        <p>Requires Chrome, Chromium, or Edge. Build: <code>CMake (see extensions/)</code>; enable in <code>melt.config</code> or <code>melt.ini</code> with <code>extension = headless_browser</code>.</p>
         <table>
           <tr><th>Function</th><th>Description</th></tr>
           <tr><td><code>headlessBrowserVersion()</code></td><td>Extension version string.</td></tr>
@@ -523,7 +521,7 @@ obj.getX();  // returns 1</code></pre>
           <tr><td><code>browserPdf(url, outputPath)</code></td><td>Open URL and print to PDF file.</td></tr>
         </table>
         <h3 id="builtins-image-optimize">Image optimize (extension, <code>extension = image_optimize</code>)</h3>
-        <p>Uses sips (macOS) or ImageMagick when available. Build: <code>make modules</code>; enable with <code>extension = image_optimize</code>.</p>
+        <p>Uses sips (macOS) or ImageMagick when available. Build: <code>CMake (see extensions/)</code>; enable with <code>extension = image_optimize</code>.</p>
         <table>
           <tr><th>Function</th><th>Description</th></tr>
           <tr><td><code>imageOptimizeVersion()</code></td><td>Extension version string.</td></tr>
@@ -531,7 +529,7 @@ obj.getX();  // returns 1</code></pre>
           <tr><td><code>resizeImage(inputPath, outputPath, width, height)</code></td><td>Resize image to given dimensions.</td></tr>
         </table>
         <h3 id="builtins-os">OS (extension, <code>extension = os</code>)</h3>
-        <p>Build: <code>make modules</code>; enable with <code>extension = os</code>.</p>
+        <p>Build: <code>CMake (see extensions/)</code>; enable with <code>extension = os</code>.</p>
         <table>
           <tr><th>Function</th><th>Description</th></tr>
           <tr><td><code>osVersion()</code></td><td>Extension version string.</td></tr>
@@ -544,7 +542,7 @@ obj.getX();  // returns 1</code></pre>
           <tr><td><code>osMkdirs(path)</code></td><td>Create directory and parents; returns truthy/falsy.</td></tr>
         </table>
         <h3 id="builtins-ffmpeg">FFmpeg (extension, <code>extension = ffmpeg</code>)</h3>
-        <p>Requires <strong>ffmpeg</strong> (and <strong>ffprobe</strong> for probe functions) on PATH. Build: <code>make modules</code>; enable with <code>extension = ffmpeg</code>.</p>
+        <p>Requires <strong>ffmpeg</strong> (and <strong>ffprobe</strong> for probe functions) on PATH. Build: <code>CMake (see extensions/)</code>; enable with <code>extension = ffmpeg</code>.</p>
         <table>
           <tr><th>Function</th><th>Description</th></tr>
           <tr><td><code>ffmpegVersion()</code></td><td>Extension version string.</td></tr>
@@ -575,25 +573,25 @@ obj.getX();  // returns 1</code></pre>
 }
 setHandler("App");
 listen(8080);</code></pre>
-        <p>Run: <code>./bin/melt examples/server.melt</code> then open http://localhost:8080/</p>
+        <p>Run: <code>./build/melt examples/server.melt</code> then open http://localhost:8080/</p>
         <h3>MVC app (web_project_mvc)</h3>
-        <p>Run: <code>./bin/melt examples/web_project_mvc/main.melt</code></p>
+        <p>Run: <code>./build/melt examples/web_project_mvc/main.melt</code></p>
         <p><strong>Structure:</strong> <code>main.melt</code> → config + routes; <code>config/app.melt</code>, <code>config/database.melt</code>; <code>routes.melt</code> (servePublic then controller); <code>controllers/*.melt</code>; <code>models/</code>; <code>views/layout.melt</code> + <code>views/*.html</code> (Blade-like <code>{{ key }}</code>, <code>{!! key !!}</code>); <code>public/js</code>, <code>public/css</code>, <code>public/images</code>; <code>migrations/*.sql</code>; <code>run_migrations.melt</code>.</p>
         <p><strong>Adding a route:</strong> Add branch in <code>routes.melt</code>, new controller file, render method in <code>views/layout.melt</code>, optional <code>views/name.html</code>.</p>
-        <p><strong>Migrations:</strong> <code>./bin/melt examples/web_project_mvc/run_migrations.melt</code>. Add <code>migrations/NNN_name.sql</code> and append filename to <code>migrationFiles</code> in the runner.</p>
+        <p><strong>Migrations:</strong> <code>./build/melt examples/web_project_mvc/run_migrations.melt</code>. Add <code>migrations/NNN_name.sql</code> and append filename to <code>migrationFiles</code> in the runner.</p>
         <h3>Official website (official_website_using_melt)</h3>
         <p>Full Melt website: Home, Documentation, About, Resource, Support, and a <strong>dynamic blog</strong> (MySQL).</p>
-        <p><strong>Run:</strong> <code>./bin/melt examples/official_website_using_melt/main.melt</code> then open <strong>http://localhost:4000</strong></p>
+        <p><strong>Run:</strong> <code>./build/melt examples/official_website_using_melt/main.melt</code> then open <strong>http://localhost:4000</strong></p>
         <p><strong>Structure:</strong> <code>main.melt</code> → config + routes; <code>config/app.melt</code> (port 4000), <code>config/database.melt</code>; <code>routes.melt</code> (servePublic then routes for /, /documentation, /about, /resource, /support, /blog, /blog/new, POST /blog, 404); <code>controllers/*.melt</code> (Home, Documentation, About, Resource, Support, Blog, NotFound); <code>database/models/blog.melt</code> (<code>BlogPost</code>); <code>database/migrations/*.sql</code>; <code>database/seeders/*.melt</code>; <code>views/layout.melt</code> + <code>views/*.html</code>; <code>public/css/site.css</code>; <code>run_migrations.melt</code>, <code>run_seeders.melt</code>.</p>
         <p><strong>Menu:</strong> Home (/), Documentation (/documentation), About (/about), Resource (/resource), Support (/support), Blog (/blog), New post (/blog/new).</p>
-        <p><strong>Blog:</strong> All posts listed on /blog (drafts show “Draft” badge). Create at /blog/new; check “Publish” to show immediately. Edit <code>config/database.melt</code> for MySQL. Migrations: <code>./bin/melt examples/official_website_using_melt/run_migrations.melt</code> (requires <code>make with-mysql</code>).</p>
+        <p><strong>Blog:</strong> All posts listed on /blog (drafts show “Draft” badge). Create at /blog/new; check “Publish” to show immediately. Edit <code>config/database.melt</code> for MySQL. Migrations: <code>./build/melt examples/official_website_using_melt/run_migrations.melt</code> (requires <code>-DUSE_MYSQL=ON</code>).</p>
       </section>
 
       <section id="official-website">
         <h2>Official Website (full reference)</h2>
         <p>The <strong>official Melt website</strong> lives in <code>examples/official_website_using_melt/</code>. It is built with Melt using the same MVC pattern as <code>web_project_mvc</code> and includes a dynamic blog backed by MySQL.</p>
         <h3>Run</h3>
-        <pre><code>./bin/melt examples/official_website_using_melt/main.melt</code></pre>
+        <pre><code>./build/melt examples/official_website_using_melt/main.melt</code></pre>
         <p>Then open <strong>http://localhost:4000</strong>. Without MySQL, the site runs; the blog shows “No posts yet” and the New post form is available (creating a post requires MySQL).</p>
         <h3>Project structure</h3>
         <table>
@@ -625,7 +623,7 @@ listen(8080);</code></pre>
         </table>
         <h3>Blog and database</h3>
         <p><strong>Table:</strong> <code>blog_posts</code> (id, title, body, published, created_at). All posts shown on /blog; drafts show a “Draft” badge.</p>
-        <p><strong>Migrations:</strong> <code>make with-mysql</code>, then <code>./bin/melt examples/official_website_using_melt/run_migrations.melt</code>. Edit <code>config/database.melt</code> for your MySQL.</p>
+        <p><strong>Migrations:</strong> <code>-DUSE_MYSQL=ON</code>, then <code>./build/melt examples/official_website_using_melt/run_migrations.melt</code>. Edit <code>config/database.melt</code> for your MySQL.</p>
         <p><strong>Create post:</strong> Open /blog/new, fill title and body, optionally check “Publish”, submit.</p>
       </section>
 
@@ -634,9 +632,9 @@ listen(8080);</code></pre>
         <p>Building the interpreter and writing loadable extensions.</p>
         <h3>Building the interpreter</h3>
         <p>From the repo root:</p>
-        <pre><code>make          # bin/melt
-make modules  # build example extension → bin/modules/</code></pre>
-        <p>Optional: <code>make with-mysql</code>, <code>make with-gui</code>. Config is read from <code>bin/melt.ini</code> and project <code>melt.config</code>.</p>
+        <pre><code>cmake -B build &amp;&amp; cmake --build build   # → build/melt
+# Add targets in CMakeLists.txt for extensions → bin/modules/</code></pre>
+        <p>Optional: <code>-DUSE_MYSQL=ON</code>. Config is read from <code>build/melt.ini</code> and project <code>melt.config</code>.</p>
         <h3>Extension contract</h3>
         <p>Loadable extensions are shared libraries. Each must export:</p>
         <pre><code>extern "C" void melt_register(Interpreter* interp);</code></pre>
@@ -650,12 +648,12 @@ make modules  # build example extension → bin/modules/</code></pre>
         <p>Extensions need the same includes as the main binary so <code>#include "interpreter.hpp"</code> works (e.g. <code>-I src -I src/core</code> from repo root).</p>
         <h3>Building extensions</h3>
         <ul>
-          <li><strong>Example:</strong> <code>make modules</code> builds <code>extensions/example/example.cpp</code> into <code>bin/modules/example.dylib</code> (macOS), <code>example.so</code> (Linux), or <code>example.dll</code> (Windows).</li>
+          <li><strong>Example:</strong> <code>CMake (see extensions/)</code> builds <code>extensions/example/example.cpp</code> into <code>bin/modules/example.dylib</code> (macOS), <code>example.so</code> (Linux), or <code>example.dll</code> (Windows).</li>
           <li><strong>macOS:</strong> use <code>-fPIC -shared -undefined dynamic_lookup</code> so the extension resolves <code>Interpreter::registerBuiltin</code> from the main binary at load time.</li>
           <li><strong>Linux:</strong> main binary is built with <code>-rdynamic</code> so loaded <code>.so</code> files can resolve interpreter symbols.</li>
         </ul>
         <h3>Configuration (melt.ini)</h3>
-        <p>In <code>bin/melt.ini</code> or project <code>melt.config</code>:</p>
+        <p>In <code>build/melt.ini</code> or project <code>melt.config</code>:</p>
         <ul>
           <li><code>extension_enabled</code> = 1|0|true|false|on|off — enable/disable loading extensions (default: on).</li>
           <li><code>extension_dir</code> = directory relative to the melt binary (default: <code>modules</code>).</li>
@@ -667,7 +665,7 @@ make modules  # build example extension → bin/modules/</code></pre>
         <h3>Adding your own extension</h3>
         <ol>
           <li>Add a folder under <code>extensions/</code> with a <code>.cpp</code> that implements <code>melt_register</code> and <code>registerBuiltin</code> calls.</li>
-          <li>Add a Makefile target to build a shared library into <code>bin/modules/&lt;name&gt;.so|.dylib|.dll</code>.</li>
+          <li>Add a CMake target (or Makefile wrapper target) to build a shared library into <code>bin/modules/&lt;name&gt;.so|.dylib|.dll</code>.</li>
           <li>Set <code>extension = &lt;name&gt;</code> (or append to the list) in <code>melt.ini</code>.</li>
         </ol>
       </section>
@@ -719,10 +717,10 @@ make modules  # build example extension → bin/modules/</code></pre>
           <li><strong>macOS:</strong> <code>clang++ -std=c++17 -fPIC -shared -undefined dynamic_lookup -I src -I src/core -o bin/modules/mymodule.dylib extensions/mymodule/mymodule.cpp</code></li>
           <li><strong>Windows:</strong> Build a .dll with similar flags and place it in <code>bin/modules/mymodule.dll</code>.</li>
         </ul>
-        <p>Or add a target to the main <code>Makefile</code> (see the existing <code>modules</code> target for <code>extensions/example/example.cpp</code>) so <code>make modules</code> (or <code>make mymodule</code>) builds your library into <code>bin/modules/</code>.</p>
+        <p>Or add a target to <code>CMakeLists.txt</code> (or the Makefile wrapper) to build your library into <code>bin/modules/</code>.</p>
 
         <h3>Step 6: Enable the extension in config</h3>
-        <p>Create or edit <code>bin/melt.ini</code> (next to the <code>melt</code> binary). Add or set:</p>
+        <p>Create or edit <code>build/melt.ini</code> (next to the <code>melt</code> binary). Add or set:</p>
         <pre><code>extension_dir = modules
 extension = example,mymodule</code></pre>
         <p><code>extension_dir</code> is the folder under the binary directory where Melt looks for libraries (default <code>modules</code>). <code>extension</code> is a comma-separated list of extension names (no suffix). Melt will load <code>bin/modules/mymodule.so</code> (or .dylib / .dll) and call <code>melt_register</code>.</p>
@@ -740,8 +738,8 @@ print myOtherFunc("hello");</code></pre>
           <li>Implement one or more functions with signature <code>Value fn(Interpreter*, std::vector&lt;Value&gt; args)</code>.</li>
           <li>Implement <code>extern "C" void melt_register(Interpreter* interp)</code> and call <code>interp->registerBuiltin("name", fn)</code> for each.</li>
           <li>Build a shared library into <code>bin/modules/&lt;name&gt;.so|.dylib|.dll</code>.</li>
-          <li>Set <code>extension = &lt;name&gt;</code> in <code>bin/melt.ini</code> (or project <code>melt.config</code>).</li>
-          <li>Run <code>./bin/melt your_script.melt</code> and call your built-ins from the script.</li>
+          <li>Set <code>extension = &lt;name&gt;</code> in <code>build/melt.ini</code> (or project <code>melt.config</code>).</li>
+          <li>Run <code>./build/melt your_script.melt</code> and call your built-ins from the script.</li>
         </ol>
         <p>See <code>extensions/example/example.cpp</code> for a minimal working example (<code>exampleVersion</code>, <code>exampleAdd</code>, <code>exampleSqrt</code>).</p>
       </section>
@@ -751,7 +749,7 @@ print myOtherFunc("hello");</code></pre>
         <p>This section explains the <strong>embedded build</strong> of Melt, when to use it, what it includes and excludes, and how to run a sample embedded-style application.</p>
 
         <h3>What is the embedded build?</h3>
-        <p>The embedded build (<code>make embedded</code>) produces a smaller binary, <strong>bin/melt-embedded</strong>, by excluding optional subsystems that are not needed on resource-constrained or embedded-style targets:</p>
+        <p>The embedded build (<code>embedded build</code>) produces a smaller binary, <strong>build/melt-embedded</strong>, by excluding optional subsystems that are not needed on resource-constrained or embedded-style targets:</p>
         <ul>
           <li><strong>HTTP server</strong> — no <code>listen()</code>, <code>setHandler()</code>, <code>getRequestPath()</code>, <code>servePublic()</code>, etc. Scripts that call these get a clear runtime error: &quot;Melt embedded build: HTTP server not available&quot;.</li>
           <li><strong>MySQL / SQLite</strong> — no <code>mysqlConnect</code>, <code>mysqlQuery</code>, <code>mysqlFetchRow</code>, <code>mysqlFetchAll</code>, <code>mysqlClose</code>, <code>sqliteOpen</code>, <code>sqliteExec</code>, <code>sqliteQuery</code>, <code>sqliteFetchRow</code>, <code>sqliteFetchAll</code>, <code>sqliteClose</code>. Those built-ins are not registered (calling them yields &quot;unknown variable&quot;).</li>
@@ -773,15 +771,15 @@ print myOtherFunc("hello");</code></pre>
           <tr><td>print, readFile, writeFile, arrays, JSON, base64, xorCipher, vectors</td><td>Yes</td><td>Yes</td></tr>
           <tr><td>Loadable extensions (module_loader)</td><td>Yes</td><td>Yes</td></tr>
           <tr><td>HTTP server (listen, setHandler, servePublic, …)</td><td>Yes</td><td>No (stub throws)</td></tr>
-          <tr><td>MySQL built-ins</td><td>Only if <code>make with-mysql</code></td><td>No</td></tr>
+          <tr><td>MySQL built-ins</td><td>Only if <code>-DUSE_MYSQL=ON</code></td><td>No</td></tr>
           <tr><td>SQLite built-ins</td><td>Yes (default build)</td><td>No</td></tr>
-          <tr><td>GUI (imagePreview)</td><td>Only if <code>make with-gui</code></td><td>No (stub throws)</td></tr>
+          <tr><td>GUI (imagePreview)</td><td>Only if <code>default build (SDL2)</code></td><td>No (stub throws)</td></tr>
         </table>
 
         <h3>How to build and run</h3>
-        <pre><code>make embedded</code></pre>
-        <p>This produces <strong>bin/melt-embedded</strong>. Run scripts with:</p>
-        <pre><code>./bin/melt-embedded path/to/script.melt</code></pre>
+        <pre><code>embedded build</code></pre>
+        <p>This produces <strong>build/melt-embedded</strong>. Run scripts with:</p>
+        <pre><code>./build/melt-embedded path/to/script.melt</code></pre>
         <p>Use the same working directory and path rules as for <code>melt</code> (e.g. run from project root when using <code>import</code> or relative paths in <code>readFile</code>). Do not call <code>listen()</code>, MySQL built-ins, or <code>imagePreview()</code> in scripts intended for the embedded binary.</p>
 
         <h3>Sample embedded system</h3>
@@ -792,29 +790,29 @@ print myOtherFunc("hello");</code></pre>
           <li><strong>examples/embedded_system/loop.melt</strong> — Core logic: read sensor, compute state, write output. Imported by main.</li>
         </ul>
         <p>Run it with the embedded binary (from project root):</p>
-        <pre><code>./bin/melt-embedded examples/embedded_system/main.melt</code></pre>
-        <p>You can use the full <code>bin/melt</code> as well; the script does not use HTTP, MySQL, or GUI. The embedded build is recommended so the binary and dependencies stay minimal.</p>
+        <pre><code>./build/melt-embedded examples/embedded_system/main.melt</code></pre>
+        <p>You can use the full <code>build/melt</code> as well; the script does not use HTTP, MySQL, or GUI. The embedded build is recommended so the binary and dependencies stay minimal.</p>
 
         <h3>Extending for real hardware</h3>
         <p>On a real embedded or single-board target (e.g. Raspberry Pi running Linux), you can:</p>
         <ol>
-          <li>Build <code>melt-embedded</code> on the device or cross-compile, and install it (e.g. <code>make embedded &amp;&amp; make install PREFIX=/usr/local</code> with <code>TARGET_EMBEDDED</code> as the install binary if you extend the Makefile).</li>
+          <li>Build <code>melt-embedded</code> on the device or cross-compile, and install it (e.g. <code>cmake --install build --prefix /usr/local</code> (or extend the build for an embedded binary)).</li>
           <li>Implement a <strong>loadable extension</strong> that provides built-ins such as <code>gpioRead(pin)</code>, <code>gpioWrite(pin, value)</code>, <code>uartWrite(str)</code>, or <code>delayMs(ms)</code>. Register them in <code>melt_register</code> and load the extension via <code>melt.ini</code> or <code>melt.config</code>.</li>
           <li>Write Melt scripts that call those built-ins in a loop, or invoke the script from a systemd unit or cron job. The sample in <code>examples/embedded_system/</code> uses file I/O as a stand-in for hardware; replace that with calls to your extension once it is available.</li>
         </ol>
 
         <h3>Summary</h3>
         <ul>
-          <li><strong>Build:</strong> <code>make embedded</code> → <code>bin/melt-embedded</code>.</li>
+          <li><strong>Build:</strong> <code>embedded build</code> → <code>build/melt-embedded</code>.</li>
           <li><strong>Use when:</strong> You need a smaller binary and do not need HTTP, MySQL, or GUI.</li>
-          <li><strong>Run:</strong> <code>./bin/melt-embedded script.melt</code>. Avoid <code>listen()</code>, MySQL, and <code>imagePreview()</code>.</li>
+          <li><strong>Run:</strong> <code>./build/melt-embedded script.melt</code>. Avoid <code>listen()</code>, MySQL, and <code>imagePreview()</code>.</li>
           <li><strong>Sample:</strong> <code>examples/embedded_system/main.melt</code> shows a simple sensor–logic–actuator loop; run it with <code>melt-embedded</code>.</li>
         </ul>
       </section>
 
       <section id="examples">
         <h2>Examples</h2>
-        <p>Run from project root: <code>./bin/melt examples/&lt;path&gt;.melt</code></p>
+        <p>Run from project root: <code>./build/melt examples/&lt;path&gt;.melt</code></p>
         <table>
           <tr><th>File</th><th>Description</th></tr>
           <tr><td>hello.melt</td><td>Minimal print.</td></tr>
@@ -828,7 +826,7 @@ print myOtherFunc("hello");</code></pre>
           <tr><td>comment_demo.melt</td><td>Comments.</td></tr>
           <tr><td>multi_file/main.melt</td><td>Import and use other .melt files.</td></tr>
           <tr><td>file_io.melt</td><td>readFile, writeFile.</td></tr>
-          <tr><td>embedded_system/main.melt</td><td>Sample embedded-style loop (sensor–logic–actuator); use with <code>./bin/melt-embedded</code>.</td></tr>
+          <tr><td>embedded_system/main.melt</td><td>Sample embedded-style loop (sensor–logic–actuator); use with <code>./build/melt-embedded</code>.</td></tr>
           <tr><td>array_demo.melt</td><td>Arrays and built-ins.</td></tr>
           <tr><td>foreach_demo.melt</td><td><code>foreach</code> over arrays, objects, and SQL row arrays.</td></tr>
           <tr><td>json_demo.melt</td><td>jsonEncode, jsonDecode.</td></tr>
@@ -837,7 +835,7 @@ print myOtherFunc("hello");</code></pre>
           <tr><td>session_cookies_demo.melt</td><td>Session and cookies: getCookie, setCookie, sessionGet, sessionSet, sessionDestroy. Port 8765.</td></tr>
           <tr><td>mysql_example.melt</td><td>MySQL (requires with-mysql).</td></tr>
           <tr><td>sqlite_example.melt</td><td>SQLite (included in default build).</td></tr>
-          <tr><td>qr_demo.melt</td><td>QR code demo server: form to generate QR for any text (requires <code>make with-qr</code>). Port 8766.</td></tr>
+          <tr><td>qr_demo.melt</td><td>QR code demo server: form to generate QR for any text (requires <code>default build (QR)</code>). Port 8766.</td></tr>
           <tr><td>upload_server.melt</td><td>HTTP server with multipart file upload (uploadSave, uploadFileName, uploadFileData).</td></tr>
           <tr><td>rest_api_client.melt</td><td>Outbound HTTP: httpGet, httpPost, httpRequest.</td></tr>
           <tr><td>image_optimize_demo.melt</td><td>Image optimize extension: optimizeImage, resizeImage (requires extension = image_optimize).</td></tr>

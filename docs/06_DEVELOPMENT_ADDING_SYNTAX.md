@@ -116,9 +116,9 @@ void Interpreter::executeSay(const SayStmt& stmt) {
 From the project root:
 
 ```bash
-make clean && make
+cmake --build build
 echo 'say "Hello from say!"; say 1 + 2;' > test_say.melt
-./bin/melt test_say.melt
+./build/melt test_say.melt
 ```
 
 You should see:

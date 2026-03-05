@@ -17,7 +17,7 @@ Documentation for the **Melt** programming language: a minimal, interpreted, obj
 
 ## Quick reference
 
-- **Run a script:** `./bin/melt script.melt` (from project root)
-- **Build with MySQL:** `make with-mysql`
-- **Install binary:** `make install` (optional; installs to `/usr/local/bin` by default)
+- **Run a script:** `./build/melt script.melt` (from project root)
+- **Build with MySQL:** `cmake -B build -DUSE_MYSQL=ON && cmake --build build`
+- **Install binary:** `cmake --install build` (optional; installs to `/usr/local` by default)
 - **File extension:** `.melt`

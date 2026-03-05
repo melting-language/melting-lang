@@ -3,7 +3,7 @@
 All examples are under **`examples/`**. Run them from the **project root** with:
 
 ```bash
-./bin/melt examples/<path>.melt
+./build/melt examples/<path>.melt
 ```
 
 (If you installed the binary: `melt examples/<path>.melt`.)
@@ -27,7 +27,7 @@ All examples are under **`examples/`**. Run them from the **project root** with:
 
 | Path | Description |
 |------|-------------|
-| **multi_file/main.melt** | Imports `point.melt` and `greeter.melt`; uses their classes. Run: `./bin/melt examples/multi_file/main.melt` |
+| **multi_file/main.melt** | Imports `point.melt` and `greeter.melt`; uses their classes. Run: `./build/melt examples/multi_file/main.melt` |
 
 ---
 
@@ -63,7 +63,7 @@ Run then open http://localhost:8080/
 |------|-------------|
 | **mysql_example.melt** | Connects with `mysqlConnect`, runs `mysqlQuery("SELECT ...")`, reads rows with `mysqlFetchRow()`, then `mysqlClose()`. |
 
-Requires **`make with-mysql`** and a running MySQL instance; edit host, user, password, database in the script.
+Requires build with **`-DUSE_MYSQL=ON`** and a running MySQL instance; edit host, user, password, database in the script.
 
 ---
 
@@ -73,7 +73,7 @@ Requires **`make with-mysql`** and a running MySQL instance; edit host, user, pa
 |------|-------------|
 | **sqlite_example.melt** | Opens a SQLite DB file, creates a table, inserts rows, runs `SELECT`, reads with `sqliteFetchAll()` + `foreach`, then closes. |
 
-Requires **`make with-sqlite`**.
+Requires default build (SQLite is included).
 
 ---
 
@@ -81,7 +81,7 @@ Requires **`make with-sqlite`**.
 
 | Path | Description |
 |------|-------------|
-| **web_project_mvc/main.melt** | Full MVC app: config, routes, controllers, views, public assets. Run: `./bin/melt examples/web_project_mvc/main.melt` then open http://localhost:8080/ |
+| **web_project_mvc/main.melt** | Full MVC app: config, routes, controllers, views, public assets. Run: `./build/melt examples/web_project_mvc/main.melt` then open http://localhost:8080/ |
 
 See [HTTP Server & MVC Framework](04_HTTP_AND_MVC.md) and **examples/web_project_mvc/README.md** for structure and how to add routes, controllers, and migrations.
 
@@ -91,7 +91,7 @@ See [HTTP Server & MVC Framework](04_HTTP_AND_MVC.md) and **examples/web_project
 
 | Path | Description |
 |------|-------------|
-| **official_website_using_melt/main.melt** | Full official Melt website (MVC): Home, Documentation, About, Resource, Support, Blog (dynamic, MySQL). Port 4000. Run: `./bin/melt examples/official_website_using_melt/main.melt` then open http://localhost:4000/ |
+| **official_website_using_melt/main.melt** | Full official Melt website (MVC): Home, Documentation, About, Resource, Support, Blog (dynamic, MySQL). Port 4000. Run: `./build/melt examples/official_website_using_melt/main.melt` then open http://localhost:4000/ |
 
 See [HTTP Server & MVC Framework — Official website](04_HTTP_AND_MVC.md#official-website-official_website_using_melt) for full structure, blog, migrations, and menu. See **examples/official_website_using_melt/README.md** for a short overview.
 
@@ -99,11 +99,11 @@ See [HTTP Server & MVC Framework — Official website](04_HTTP_AND_MVC.md#offici
 
 ## Running from the examples directory
 
-If you run from inside **examples/** (and `bin/melt` is in the parent directory):
+If you run from inside **examples/** (and `build/melt` is in the parent directory):
 
 ```bash
-../bin/melt hello.melt
-../bin/melt multi_file/main.melt
+../build/melt hello.melt
+../build/melt multi_file/main.melt
 ```
 
 Imports and relative paths are still resolved relative to each file’s directory, but the “entry script” directory will be e.g. `examples/` or `examples/multi_file/`, so some paths may differ. Prefer running from the project root for the MVC app and migrations.

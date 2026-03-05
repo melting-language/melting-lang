@@ -5,59 +5,48 @@
 From the project root:
 
 ```bash
-make
+cmake -B build
+cmake --build build
 ```
 
-This compiles the interpreter and produces **`bin/melt`**. The `bin/` directory is created if it doesn’t exist.
-
-To build with **MySQL** support (optional):
+This compiles the interpreter and produces **`build/melt`**. The default build includes SQLite, SDL2 (GUI), and QR. Optional **MySQL** support:
 
 ```bash
-make with-mysql
+cmake -B build -DUSE_MYSQL=ON
+cmake --build build
 ```
 
 You need the MySQL client library (e.g. `libmysqlclient-dev` on Ubuntu, `mysql` on Homebrew).
-
-To build with **SQLite** support (optional):
-
-```bash
-make with-sqlite
-```
-
-This enables `sqliteOpen/sqliteExec/sqliteQuery/sqliteFetchRow/sqliteClose` built-ins.  
-You need the SQLite development library (usually `sqlite3` / `libsqlite3-dev`).
-
-For a **smaller binary** without HTTP server, MySQL, or GUI (e.g. for embedded targets), use **`make embedded`**. This produces **`bin/melt-embedded`**. Scripts that call `listen()`, MySQL built-ins, or `imagePreview()` will get a clear runtime error.
 
 ## Install the binary (optional)
 
 Install `melt` so you can run it from any directory:
 
 ```bash
-make install
+cmake --install build
 ```
 
-This installs to **`/usr/local/bin`** by default. To use a different prefix:
+This installs to **`/usr/local`** by default. To use a different prefix:
 
 ```bash
-make install PREFIX=/usr              # system-wide (e.g. Linux)
-make install PREFIX=$(HOME)/.local     # user-only (~/.local/bin; add to PATH)
+cmake --install build --prefix /usr
+cmake --install build --prefix $(HOME)/.local   # user-only (~/.local/bin; add to PATH)
 ```
 
-To remove: `make uninstall` (use the same `PREFIX` if you changed it).
+You can also use the Makefile wrapper: `make install` or `make install PREFIX=/usr`.
 
 ## Run a program
 
 From the **project root**:
 
 ```bash
-./bin/melt path/to/script.melt
+./build/melt path/to/script.melt
 ```
 
 Example:
 
 ```bash
-./bin/melt examples/hello.melt
+./build/melt examples/hello.melt
 ```
 
 If you installed the binary:
@@ -66,7 +55,7 @@ If you installed the binary:
 melt path/to/script.melt
 ```
 
-Running `./bin/melt` with **no arguments** runs a built-in demo (variables, conditionals, loops).
+Running `./build/melt` with **no arguments** runs a built-in demo (variables, conditionals, loops).
 
 ## Your first Melt program
 
@@ -81,13 +70,13 @@ print name;
 Run it:
 
 ```bash
-./bin/melt hello.melt
+./build/melt hello.melt
 ```
 
 Output: `Hello, Melt`
 
 ## Paths and working directory
 
-- **Import paths** in `import "path.melt";` are relative to the **directory of the file that contains the import** (the current script’s directory when that file was loaded).
-- **File paths** in built-ins like `readFile(path)` are resolved relative to the **entry script’s directory** when the path is relative (e.g. `readFile("migrations/001.sql")` from `examples/web_project_mvc/run_migrations.melt` looks under `examples/web_project_mvc/`).
+- **Import paths** in `import "path.melt";` are relative to the **directory of the file that contains the import** (the current script's directory when that file was loaded).
+- **File paths** in built-ins like `readFile(path)` are resolved relative to the **entry script's directory** when the path is relative (e.g. `readFile("migrations/001.sql")` from `examples/web_project_mvc/run_migrations.melt` looks under `examples/web_project_mvc/`).
 - Run Melt from the **project root** when using examples or the MVC app, so that relative paths resolve correctly.
