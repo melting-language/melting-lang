@@ -1,6 +1,3 @@
 [submodule "examples"]
 	path = examples
 	url = git@github.com:melting-language/melting-lang-examples.git
-[submodule "syntax_highlighter_extension"]
-	path = syntax_highlighter_extension
-	url = git@github.com:melting-language/melting-lang-syntax-highlighter.git
