@@ -22,6 +22,7 @@ endif()
 set(USE_GUI ON)
 set(USE_MYSQL ON)
 set(USE_SQLITE ON)
+set(USE_QR ON)
 
 
 configure_file(config.h.in ${CMAKE_BINARY_DIR}/config.h)
@@ -31,6 +32,7 @@ find_package(PkgConfig REQUIRED)
 find_package(SDL2 REQUIRED)
 pkg_check_modules(SQLITE3 REQUIRED sqlite3)
 pkg_check_modules(MYSQL mysqlclient)
+pkg_check_modules(QRENCODE REQUIRED IMPORTED_TARGET libqrencode)
 
 message(STATUS "SDL2 Libs: ${SDL2_LIBRARIES}")
 message(STATUS "SDL2 Includes: ${SDL2_INCLUDE_DIRS}")
@@ -41,14 +43,15 @@ message(STATUS "MySQL LDFLAGS: ${MYSQL_LDFLAGS}")
 
 set(SOURCES
     src/main.cpp
-    src/core/lexer.cpp
-    src/core/parser.cpp
     src/core/interpreter.cpp
+    src/core/lexer.cpp
     src/core/module_loader.cpp
+    src/core/parser.cpp
+    src/gui/gui_window.cpp
     src/http/http_server.cpp
     src/mysql/mysql_builtin.cpp
-    src/sqlite/sqlite_builtin.cpp
     src/qr/qr_builtin.cpp
+    src/sqlite/sqlite_builtin.cpp
 )
 
 add_executable(${PROJECT_NAME} ${SOURCES})
@@ -71,6 +74,7 @@ target_include_directories(${PROJECT_NAME} PRIVATE
 target_link_libraries(${PROJECT_NAME} 
     PRIVATE
     pthread
+    PkgConfig::QRENCODE
     ${MYSQL_LDFLAGS}
     ${SDL2_LIBRARIES}
     ${SQLITE3_LIBRARIES}
