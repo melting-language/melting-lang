@@ -1,0 +1,78 @@
+# Build with CMake (Linux and macOS). Requires SDL2, sqlite3, libqrencode.
+name: Build (CMake)
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  build-cmake:
+    runs-on: ${{ matrix.os }}
+
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+          - os: macos-latest
+
+    steps:
+      - name: Checkout repository (no submodules)
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          git init
+          git remote add origin "https://x-access-token:${GH_TOKEN}@github.com/${{ github.repository }}.git"
+          git fetch --depth 1 origin "${{ github.sha }}":refs/heads/ci
+          git checkout ci
+
+      - name: Install dependencies (Ubuntu)
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y cmake build-essential pkg-config \
+            libsdl2-dev libsqlite3-dev libqrencode-dev
+
+      - name: Install dependencies (macOS)
+        if: runner.os == 'macOS'
+        run: |
+          brew install cmake pkg-config sdl2 sqlite qrencode
+
+      - name: Configure (CMake)
+        run: |
+          mkdir -p build
+          cd build
+          cmake .. -DUSE_MYSQL=OFF
+
+      - name: Build (CMake)
+        run: |
+          cd build
+          cmake --build .
+
+      - name: Test — run built-in demo (no args)
+        run: ./build/melt
+
+      - name: Test — run example
+        run: ./build/melt example.melt
+
+      - name: Test — run GUI render demo
+        run: ./build/melt examples/gui_render_demo.melt
+
+      - name: Set artifact name
+        id: artifact
+        run: |
+          case "${{ matrix.os }}" in
+            ubuntu-latest) echo "name=melt-cmake-linux-x86_64" >> "$GITHUB_OUTPUT" ;;
+            macos-latest)  echo "name=melt-cmake-darwin-$(uname -m)" >> "$GITHUB_OUTPUT" ;;
+            *)             echo "name=melt-cmake-${{ matrix.os }}" >> "$GITHUB_OUTPUT" ;;
+          esac
+
+      - name: Upload melt binary
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ steps.artifact.outputs.name }}
+          path: build/melt
+          retention-days: 30
