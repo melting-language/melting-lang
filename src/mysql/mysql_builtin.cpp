@@ -4,12 +4,8 @@
 #include <sstream>
 #include <stdexcept>
 
-#if defined(USE_MYSQL)
-#if defined(__has_include) && __has_include(<mysql/mysql.h>)
+#ifdef USE_MYSQL
 #include <mysql/mysql.h>
-#else
-#include <mysql.h>
-#endif
 #endif
 
 #if defined(USE_MYSQL)

@@ -2,3 +2,4 @@
 scripts/examples-repo-push-me/
 scripts/syntax-highlighter-repo-push-me/
 bin/
+build/

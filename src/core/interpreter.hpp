@@ -1,5 +1,7 @@
 #pragma once
 
+#include "config.h"
+
 #include "ast.hpp"
 #include <cstdint>
 #include <functional>
