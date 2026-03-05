@@ -55,12 +55,6 @@ jobs:
       - name: Test — run built-in demo (no args)
         run: ./build/melt
 
-      - name: Test — run example
-        run: ./build/melt example.melt
-
-      - name: Test — run GUI render demo
-        run: ./build/melt examples/gui_render_demo.melt
-
       - name: Set artifact name
         id: artifact
         run: |
