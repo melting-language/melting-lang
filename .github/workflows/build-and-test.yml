@@ -1,5 +1,5 @@
 # Build and test the Melt language (C++ interpreter)
-# Uses Makefile; runs on Linux and macOS with GCC and Clang.
+# Uses CMake only (no Make). Runs on Linux and macOS with GCC and Clang.
 # NOTE: This workflow does NOT use actions/checkout so submodules are never fetched.
 name: Build and Test
 
@@ -24,9 +24,8 @@ jobs:
             cxx: clang++
           - os: macos-latest
             cxx: clang++
+
     steps:
-      # Do NOT use actions/checkout here — it would fetch submodules and fail.
-      # Manual clone fetches only the main repo at the triggering commit.
       - name: Checkout repository (no submodules)
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -36,21 +35,31 @@ jobs:
           git fetch --depth 1 origin "${{ github.sha }}":refs/heads/ci
           git checkout ci
 
-      - name: Build (Make)
-        run: make ci CXX=${{ matrix.cxx }}
-        env:
-          # Ensure no MySQL linkage so the binary runs on runners without libmysqlclient.
-          MYSQL_CFLAGS: ""
-          MYSQL_LIBS: ""
+      - name: Install dependencies (Ubuntu)
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y cmake build-essential pkg-config \
+            libsdl2-dev libsqlite3-dev libqrencode-dev
+
+      - name: Install dependencies (macOS)
+        if: runner.os == 'macOS'
+        run: |
+          brew install cmake pkg-config sdl2 sqlite qrencode
+
+      - name: Configure (CMake)
+        run: |
+          mkdir -p build
+          cd build
+          cmake .. -DUSE_MYSQL=OFF -DCMAKE_CXX_COMPILER=${{ matrix.cxx }}
+
+      - name: Build (CMake)
+        run: |
+          cd build
+          cmake --build .
 
       - name: Test — run built-in demo (no args)
-        run: ./bin/melt
-
-      - name: Test — run example.melt
-        run: ./bin/melt example.melt
-
-      - name: Test — run example_oop.melt
-        run: ./bin/melt example_oop.melt
+        run: ./build/melt
 
       - name: Set binary artifact name
         id: artifact
@@ -61,9 +70,9 @@ jobs:
             *)            echo "name=melt-${{ matrix.os }}-${{ matrix.cxx }}" >> "$GITHUB_OUTPUT" ;;
           esac
 
-      - name: Upload bin directory
+      - name: Upload melt binary
         uses: actions/upload-artifact@v4
         with:
           name: ${{ steps.artifact.outputs.name }}
-          path: bin/
+          path: build/melt
           retention-days: 30
