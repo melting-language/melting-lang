@@ -2,6 +2,7 @@ CXX = g++
 
 # Include all source dirs so that #include "lexer.hpp" etc. resolve from subdirs
 CXXFLAGS = -std=c++17 -Wall \
+		   -I . \
 		   -I src \
 		   -I src/core \
 		   -I src/http \
