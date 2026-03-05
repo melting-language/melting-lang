@@ -26,6 +26,7 @@ endif()
 set(USE_GUI ON)
 set(USE_SQLITE ON)
 set(USE_QR ON)
+set(USE_MYSQL OFF)
 
 find_package(PkgConfig REQUIRED)
 find_package(SDL2 REQUIRED)
@@ -33,17 +34,6 @@ pkg_check_modules(SQLITE3 REQUIRED sqlite3)
 pkg_check_modules(MYSQL mysqlclient)
 pkg_check_modules(QRENCODE REQUIRED IMPORTED_TARGET libqrencode)
 
-# MySQL: optional. Enable with -DUSE_MYSQL=ON if mysqlclient include path works.
-if(MYSQL_FOUND AND USE_MYSQL)
-    message(STATUS "Building with MySQL support")
-else()
-    set(USE_MYSQL OFF)
-    if(MYSQL_FOUND)
-        message(STATUS "MySQL found but disabled (set -DUSE_MYSQL=ON to enable)")
-    else()
-        message(STATUS "MySQL not found; building without MySQL support")
-    endif()
-endif()
 
 configure_file(config.h.in ${CMAKE_BINARY_DIR}/config.h)
 
@@ -66,21 +56,19 @@ set(SOURCES
 
 add_executable(${PROJECT_NAME} ${SOURCES})
 
-target_include_directories(${PROJECT_NAME} PRIVATE 
-    src
-    src/core
-    src/http
-    src/mysql
-    src/sqlite
-    src/gui
-    src/qr
+set(MELT_INCLUDE_HEADERS
+    ${CMAKE_CURRENT_SOURCE_DIR}/src
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/core
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/http
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/mysql
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/sqlite
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/gui
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/qr
     ${SQLITE3_INCLUDE_DIRS}
     ${CMAKE_BINARY_DIR}
     ${SDL2_INCLUDE_DIRS}
 )
-if(USE_MYSQL)
-    target_include_directories(${PROJECT_NAME} PRIVATE ${MYSQL_INCLUDE_DIRS})
-endif()
+target_include_directories(${PROJECT_NAME} PRIVATE ${MELT_INCLUDE_HEADERS})
 
 target_link_libraries(${PROJECT_NAME} 
     PRIVATE
@@ -90,9 +78,26 @@ target_link_libraries(${PROJECT_NAME}
     ${SQLITE3_LIBRARIES}
     ${CMAKE_DL_LIBS}
 )
-if(USE_MYSQL)
+
+# =================================================================================
+#  Optional enable section
+# =================================================================================
+
+# MySQL: optional. Enable with -DUSE_MYSQL=ON if mysqlclient include path works.
+if(MYSQL_FOUND AND USE_MYSQL)
+    message(STATUS "Building with MySQL support")
+    target_include_directories(${PROJECT_NAME} PRIVATE ${MYSQL_INCLUDE_DIRS})
     target_link_libraries(${PROJECT_NAME} PRIVATE ${MYSQL_LDFLAGS})
+else()
+    if(MYSQL_FOUND)
+        message(STATUS "MySQL found but disabled (set -DUSE_MYSQL=ON to enable)")
+    else()
+        message(STATUS "MySQL not found; building without MySQL support")
+    endif()
 endif()
+
+
+add_subdirectory(extensions)
 
 # Install (e.g. cmake --install build --prefix /usr/local)
 install(TARGETS ${PROJECT_NAME} RUNTIME DESTINATION bin)
