@@ -20,13 +20,8 @@ endif()
 
 # Melt specific configurations
 set(USE_GUI ON)
-set(USE_MYSQL ON)
 set(USE_SQLITE ON)
 set(USE_QR ON)
-
-
-configure_file(config.h.in ${CMAKE_BINARY_DIR}/config.h)
-
 
 find_package(PkgConfig REQUIRED)
 find_package(SDL2 REQUIRED)
@@ -34,12 +29,23 @@ pkg_check_modules(SQLITE3 REQUIRED sqlite3)
 pkg_check_modules(MYSQL mysqlclient)
 pkg_check_modules(QRENCODE REQUIRED IMPORTED_TARGET libqrencode)
 
+# MySQL: optional. Enable with -DUSE_MYSQL=ON if mysqlclient include path works.
+if(MYSQL_FOUND AND USE_MYSQL)
+    message(STATUS "Building with MySQL support")
+else()
+    set(USE_MYSQL OFF)
+    if(MYSQL_FOUND)
+        message(STATUS "MySQL found but disabled (set -DUSE_MYSQL=ON to enable)")
+    else()
+        message(STATUS "MySQL not found; building without MySQL support")
+    endif()
+endif()
+
+configure_file(config.h.in ${CMAKE_BINARY_DIR}/config.h)
+
 message(STATUS "SDL2 Libs: ${SDL2_LIBRARIES}")
 message(STATUS "SDL2 Includes: ${SDL2_INCLUDE_DIRS}")
-message(STATUS "MySQL Libraries: ${MYSQL_LIBRARIES}")
-message(STATUS "MySQL Library Dir: ${MYSQL_LIBRARY_DIRS}")
-message(STATUS "MySQL LDFLAGS: ${MYSQL_LDFLAGS}")
-
+message(STATUS "MySQL found: ${MYSQL_FOUND}")
 
 set(SOURCES
     src/main.cpp
@@ -67,16 +73,19 @@ target_include_directories(${PROJECT_NAME} PRIVATE
     ${SQLITE3_INCLUDE_DIRS}
     ${CMAKE_BINARY_DIR}
     ${SDL2_INCLUDE_DIRS}
-    ${MYSQL_INCLUDE_DIRS}
 )
-
+if(USE_MYSQL)
+    target_include_directories(${PROJECT_NAME} PRIVATE ${MYSQL_INCLUDE_DIRS})
+endif()
 
 target_link_libraries(${PROJECT_NAME} 
     PRIVATE
     pthread
     PkgConfig::QRENCODE
-    ${MYSQL_LDFLAGS}
     ${SDL2_LIBRARIES}
     ${SQLITE3_LIBRARIES}
     ${CMAKE_DL_LIBS}
 )
+if(USE_MYSQL)
+    target_link_libraries(${PROJECT_NAME} PRIVATE ${MYSQL_LDFLAGS})
+endif()
