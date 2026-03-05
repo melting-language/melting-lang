@@ -26,6 +26,13 @@ A minimal interpreted, object-oriented programming language built in C++.
 - **Encoding / simple crypto**: `base64Encode(str)`, `base64Decode(str)`; `xorCipher(str, key)` for symmetric XOR (same key encrypts and decrypts; weak, for obfuscation only).
 - **Blade-like views**: `renderView(templatePath, data)` loads an HTML template (path relative to script dir) and replaces `{{ key }}` (escaped) and `{!! key !!}` (raw) with fields from the `data` object. Used in the `web_project_mvc` example.
 
+## Install requirements
+
+### Fedora/RHEL
+
+    dnf install https://dev.mysql.com/get/mysql84-community-release-fc42-3.noarch.rpm
+    dnf install mysql-community-devel qrencode-devel sqlite-devel SDL2-devel
+
 ## Build
 
 ```bash

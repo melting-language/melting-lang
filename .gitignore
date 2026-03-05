@@ -1,3 +1,5 @@
 # Temporary repos used to push before adding as submodule
 scripts/examples-repo-push-me/
 scripts/syntax-highlighter-repo-push-me/
+bin/
+build/

@@ -1,17 +1,22 @@
+#include "config.h"
 #include "interpreter.hpp"
 #include "lexer.hpp"
 #include "parser.hpp"
+
 #if !defined(MELT_EMBEDDED)
 #include "http_server.hpp"
 #include "mysql_builtin.hpp"
 #include "sqlite_builtin.hpp"
+
 #if defined(USE_QR)
 #include "qr_builtin.hpp"
 #endif
 #endif
+
 #if defined(USE_GUI) && !defined(MELT_EMBEDDED)
 #include "gui_window.hpp"
 #endif
+
 #include "module_loader.hpp"
 #include <iostream>
 #include <fstream>

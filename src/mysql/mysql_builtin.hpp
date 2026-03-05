@@ -1,5 +1,7 @@
 #pragma once
 
+#include "config.h"
+
 class Interpreter;
 
 // Call from registerBuiltins() to add mysqlConnect, mysqlQuery, mysqlFetchRow, mysqlFetchAll, mysqlClose.
