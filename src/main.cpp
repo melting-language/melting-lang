@@ -38,7 +38,8 @@ int main(int argc, char* argv[]) {
         Lexer lexer(source);
         auto tokens = lexer.tokenize();
 
-        Parser parser(std::move(tokens));
+        std::string sourcePath = (argc > 1 && argv[1]) ? argv[1] : "";
+        Parser parser(std::move(tokens), sourcePath);
         auto statements = parser.parse();
 
         std::string binDir;

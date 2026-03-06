@@ -131,6 +131,8 @@ private:
     std::unordered_map<std::string, Value> variables_;
     Value this_;  // current 'this' for method execution
     std::string currentDir_;  // directory of the file being executed (for import resolution)
+    std::string currentFile_;  // current source file path (for error messages)
+    int currentLine_ = 0;     // current statement line (for error messages)
     std::set<std::string> importedPaths_;  // avoid circular/repeated imports
     std::string binDir_;  // directory containing the melt binary (for melt.ini, extensions)
     std::vector<std::string> modulePath_;  // additional directories to search for imports (from melt.config or addModulePath)
@@ -184,6 +186,7 @@ private:
 
     void execute(Stmt& stmt);
     Value evaluate(const Expr& expr);
+    [[noreturn]] void runtimeError(const std::string& msg);
 
     void executePrint(const PrintStmt& stmt);
     void executeExprStmt(const ExprStmt& stmt);

@@ -1,8 +1,18 @@
 #include "parser.hpp"
 #include <stdexcept>
 #include <cstdlib>
+#include <string>
 
-Parser::Parser(std::vector<Token> tokens) : tokens_(std::move(tokens)), pos_(0) {}
+Parser::Parser(std::vector<Token> tokens, std::string sourceName)
+    : tokens_(std::move(tokens)), pos_(0), sourceName_(std::move(sourceName)) {}
+
+void Parser::parseError(const std::string& msg) {
+    int line = peek().line;
+    std::string out;
+    if (!sourceName_.empty()) out += sourceName_ + ": ";
+    out += "line " + std::to_string(line) + ": " + msg;
+    throw std::runtime_error(out);
+}
 
 const Token& Parser::peek() {
     return pos_ < tokens_.size() ? tokens_[pos_] : tokens_.back();
@@ -47,76 +57,88 @@ std::unique_ptr<Stmt> Parser::statement() {
 }
 
 std::unique_ptr<Stmt> Parser::printStatement() {
+    int line = peek().line;
     auto expr = expression();
     match(TokenType::Semicolon);
-    return std::make_unique<PrintStmt>(std::move(expr));
+    auto s = std::make_unique<PrintStmt>(std::move(expr));
+    s->line = line;
+    return s;
 }
 
 std::unique_ptr<Stmt> Parser::letStatement() {
+    int line = peek().line;
     if (peek().type != TokenType::Identifier)
-        throw std::runtime_error("Expected variable name");
+        parseError("Expected variable name");
     std::string name = advance().value;
     if (!match(TokenType::Assign))
-        throw std::runtime_error("Expected '=' after variable name");
+        parseError("Expected '=' after variable name");
     auto expr = expression();
     match(TokenType::Semicolon);
-    return std::make_unique<LetStmt>(name, std::move(expr));
+    auto s = std::make_unique<LetStmt>(name, std::move(expr));
+    s->line = line;
+    return s;
 }
 
 std::unique_ptr<Stmt> Parser::importStatement() {
+    int line = peek().line;
     if (peek().type != TokenType::String)
-        throw std::runtime_error("Expected string path after 'import'");
+        parseError("Expected string path after 'import'");
     std::string path = advance().value;
     std::string asName;
     if (check(TokenType::Identifier) && peek().value == "as") {
         advance();
         if (peek().type != TokenType::Identifier)
-            throw std::runtime_error("Expected variable name after 'as'");
+            parseError("Expected variable name after 'as'");
         asName = advance().value;
     }
     if (!match(TokenType::Semicolon))
-        throw std::runtime_error("Expected ';' after import path");
-    return std::make_unique<ImportStmt>(std::move(path), std::move(asName));
+        parseError("Expected ';' after import path");
+    auto s = std::make_unique<ImportStmt>(std::move(path), std::move(asName));
+    s->line = line;
+    return s;
 }
 
 std::unique_ptr<Stmt> Parser::classStatement() {
+    int line = peek().line;
     if (peek().type != TokenType::Identifier)
-        throw std::runtime_error("Expected class name");
+        parseError("Expected class name");
     std::string name = advance().value;
     if (!match(TokenType::LBrace))
-        throw std::runtime_error("Expected '{' after class name");
+        parseError("Expected '{' after class name");
     std::vector<MethodDecl> methods;
     while (!check(TokenType::RBrace) && peek().type != TokenType::Eof) {
         methods.push_back(methodDecl());
     }
     if (!match(TokenType::RBrace))
-        throw std::runtime_error("Expected '}'");
-    return std::make_unique<ClassDeclStmt>(name, std::move(methods));
+        parseError("Expected '}'");
+    auto s = std::make_unique<ClassDeclStmt>(name, std::move(methods));
+    s->line = line;
+    return s;
 }
 
 MethodDecl Parser::methodDecl() {
     if (!match(TokenType::Method))
-        throw std::runtime_error("Expected 'method'");
+        parseError("Expected 'method'");
     if (peek().type != TokenType::Identifier)
-        throw std::runtime_error("Expected method name");
+        parseError("Expected method name");
     std::string name = advance().value;
     if (!match(TokenType::LParen))
-        throw std::runtime_error("Expected '(' after method name");
+        parseError("Expected '(' after method name");
     std::vector<std::string> params;
     while (peek().type == TokenType::Identifier) {
         params.push_back(advance().value);
         if (!match(TokenType::Comma)) break;
     }
     if (!match(TokenType::RParen))
-        throw std::runtime_error("Expected ')'");
+        parseError("Expected ')'");
     if (!match(TokenType::LBrace))
-        throw std::runtime_error("Expected '{' for method body");
+        parseError("Expected '{' for method body");
     auto body = std::make_unique<BlockStmt>();
     while (!check(TokenType::RBrace) && peek().type != TokenType::Eof) {
         body->statements.push_back(statement());
     }
     if (!match(TokenType::RBrace))
-        throw std::runtime_error("Expected '}'");
+        parseError("Expected '}'");
     MethodDecl m;
     m.name = name;
     m.params = std::move(params);
@@ -125,20 +147,24 @@ MethodDecl Parser::methodDecl() {
 }
 
 std::unique_ptr<Stmt> Parser::ifStatement() {
+    int line = peek().line;
     if (!match(TokenType::LParen))
-        throw std::runtime_error("Expected '(' after 'if'");
+        parseError("Expected '(' after 'if'");
     auto condition = expression();
     if (!match(TokenType::RParen))
-        throw std::runtime_error("Expected ')' after condition");
+        parseError("Expected ')' after condition");
     auto thenBranch = statement();
     std::unique_ptr<Stmt> elseBranch;
     if (match(TokenType::Else)) elseBranch = statement();
-    return std::make_unique<IfStmt>(std::move(condition), std::move(thenBranch), std::move(elseBranch));
+    auto s = std::make_unique<IfStmt>(std::move(condition), std::move(thenBranch), std::move(elseBranch));
+    s->line = line;
+    return s;
 }
 
 std::unique_ptr<Stmt> Parser::forStatement() {
+    int line = peek().line;
     if (!match(TokenType::LParen))
-        throw std::runtime_error("Expected '(' after 'for'");
+        parseError("Expected '(' after 'for'");
     std::unique_ptr<Stmt> init;
     if (match(TokenType::Semicolon)) {
         // no init
@@ -146,8 +172,9 @@ std::unique_ptr<Stmt> Parser::forStatement() {
         init = letStatement();
     } else {
         init = std::make_unique<ExprStmt>(expression());
+        init->line = line;
         if (!match(TokenType::Semicolon))
-            throw std::runtime_error("Expected ';' after for init");
+            parseError("Expected ';' after for init");
     }
     std::unique_ptr<Expr> condition;
     if (check(TokenType::Semicolon)) {
@@ -155,7 +182,7 @@ std::unique_ptr<Stmt> Parser::forStatement() {
     } else {
         condition = expression();
         if (!match(TokenType::Semicolon))
-            throw std::runtime_error("Expected ';' after for condition");
+            parseError("Expected ';' after for condition");
     }
     std::unique_ptr<Expr> update;
     if (check(TokenType::RParen)) {
@@ -163,103 +190,125 @@ std::unique_ptr<Stmt> Parser::forStatement() {
     } else {
         update = expression();
         if (!match(TokenType::RParen))
-            throw std::runtime_error("Expected ')' after for update");
+            parseError("Expected ')' after for update");
     }
     auto body = statement();
-    return std::make_unique<ForStmt>(std::move(init), std::move(condition), std::move(update), std::move(body));
+    auto s = std::make_unique<ForStmt>(std::move(init), std::move(condition), std::move(update), std::move(body));
+    s->line = line;
+    return s;
 }
 
 std::unique_ptr<Stmt> Parser::foreachStatement() {
+    int line = peek().line;
     if (!match(TokenType::LParen))
-        throw std::runtime_error("Expected '(' after 'foreach'");
+        parseError("Expected '(' after 'foreach'");
     if (peek().type != TokenType::Identifier)
-        throw std::runtime_error("Expected variable name in foreach");
+        parseError("Expected variable name in foreach");
     std::string firstVar = advance().value;
     std::string secondVar = "";
     bool hasSecondVar = false;
     if (match(TokenType::Comma)) {
         if (peek().type != TokenType::Identifier)
-            throw std::runtime_error("Expected second variable name in foreach");
+            parseError("Expected second variable name in foreach");
         secondVar = advance().value;
         hasSecondVar = true;
     }
     if (!match(TokenType::In))
-        throw std::runtime_error("Expected 'in' in foreach");
+        parseError("Expected 'in' in foreach");
     auto iterable = expression();
     if (!match(TokenType::RParen))
-        throw std::runtime_error("Expected ')' after foreach iterable");
+        parseError("Expected ')' after foreach iterable");
     auto body = statement();
-    return std::make_unique<ForeachStmt>(std::move(firstVar), std::move(secondVar), hasSecondVar, std::move(iterable), std::move(body));
+    auto s = std::make_unique<ForeachStmt>(std::move(firstVar), std::move(secondVar), hasSecondVar, std::move(iterable), std::move(body));
+    s->line = line;
+    return s;
 }
 
 std::unique_ptr<Stmt> Parser::whileStatement() {
+    int line = peek().line;
     if (!match(TokenType::LParen))
-        throw std::runtime_error("Expected '(' after 'while'");
+        parseError("Expected '(' after 'while'");
     auto condition = expression();
     if (!match(TokenType::RParen))
-        throw std::runtime_error("Expected ')' after condition");
+        parseError("Expected ')' after condition");
     auto body = statement();
-    return std::make_unique<WhileStmt>(std::move(condition), std::move(body));
+    auto s = std::make_unique<WhileStmt>(std::move(condition), std::move(body));
+    s->line = line;
+    return s;
 }
 
 std::unique_ptr<Stmt> Parser::returnStatement() {
+    int line = peek().line;
     std::unique_ptr<Expr> value;
     if (!check(TokenType::Semicolon) && peek().type != TokenType::Eof)
         value = expression();
     match(TokenType::Semicolon);
-    return std::make_unique<ReturnStmt>(std::move(value));
+    auto s = std::make_unique<ReturnStmt>(std::move(value));
+    s->line = line;
+    return s;
 }
 
 std::unique_ptr<Stmt> Parser::tryStatement() {
+    int line = peek().line;
     if (!match(TokenType::LBrace))
-        throw std::runtime_error("Expected '{' after 'try'");
+        parseError("Expected '{' after 'try'");
     auto tryBody = std::make_unique<BlockStmt>();
     while (!check(TokenType::RBrace) && peek().type != TokenType::Eof)
         tryBody->statements.push_back(statement());
     if (!match(TokenType::RBrace))
-        throw std::runtime_error("Expected '}' after try block");
+        parseError("Expected '}' after try block");
     if (!match(TokenType::Catch))
-        throw std::runtime_error("Expected 'catch' after try block");
+        parseError("Expected 'catch' after try block");
     if (!match(TokenType::LParen))
-        throw std::runtime_error("Expected '(' after 'catch'");
+        parseError("Expected '(' after 'catch'");
     if (peek().type != TokenType::Identifier)
-        throw std::runtime_error("Expected variable name in catch");
+        parseError("Expected variable name in catch");
     std::string catchVar = advance().value;
     if (!match(TokenType::RParen))
-        throw std::runtime_error("Expected ')' after catch variable");
+        parseError("Expected ')' after catch variable");
     if (!match(TokenType::LBrace))
-        throw std::runtime_error("Expected '{' for catch block");
+        parseError("Expected '{' for catch block");
     auto catchBody = std::make_unique<BlockStmt>();
     while (!check(TokenType::RBrace) && peek().type != TokenType::Eof)
         catchBody->statements.push_back(statement());
     if (!match(TokenType::RBrace))
-        throw std::runtime_error("Expected '}' after catch block");
-    return std::make_unique<TryCatchStmt>(std::move(tryBody), std::move(catchVar), std::move(catchBody));
+        parseError("Expected '}' after catch block");
+    auto s = std::make_unique<TryCatchStmt>(std::move(tryBody), std::move(catchVar), std::move(catchBody));
+    s->line = line;
+    return s;
 }
 
 std::unique_ptr<Stmt> Parser::throwStatement() {
+    int line = peek().line;
     auto value = expression();
     match(TokenType::Semicolon);
-    return std::make_unique<ThrowStmt>(std::move(value));
+    auto s = std::make_unique<ThrowStmt>(std::move(value));
+    s->line = line;
+    return s;
 }
 
 std::unique_ptr<Stmt> Parser::blockStatement() {
+    int line = peek().line;
     auto block = std::make_unique<BlockStmt>();
     while (!check(TokenType::RBrace) && peek().type != TokenType::Eof) {
         block->statements.push_back(statement());
     }
     if (!match(TokenType::RBrace))
-        throw std::runtime_error("Expected '}'");
+        parseError("Expected '}'");
+    block->line = line;
     return block;
 }
 
 std::unique_ptr<Stmt> Parser::exprStatement() {
+    int line = peek().line;
     if (peek().type == TokenType::Identifier && pos_ + 1 < tokens_.size() && tokens_[pos_ + 1].type == TokenType::Assign) {
         std::string name = advance().value;
         advance(); // =
         auto expr = expression();
         match(TokenType::Semicolon);
-        return std::make_unique<AssignStmt>(name, std::move(expr));
+        auto s = std::make_unique<AssignStmt>(name, std::move(expr));
+        s->line = line;
+        return s;
     }
     auto expr = expression();
     if (match(TokenType::Assign)) {
@@ -268,7 +317,9 @@ std::unique_ptr<Stmt> Parser::exprStatement() {
             std::unique_ptr<Expr> indexExpr = std::move(idx->index);
             auto val = expression();
             match(TokenType::Semicolon);
-            return std::make_unique<SetIndexStmt>(std::move(arr), std::move(indexExpr), std::move(val));
+            auto s = std::make_unique<SetIndexStmt>(std::move(arr), std::move(indexExpr), std::move(val));
+            s->line = line;
+            return s;
         }
         GetExpr* g = dynamic_cast<GetExpr*>(expr.get());
         if (g) {
@@ -276,12 +327,16 @@ std::unique_ptr<Stmt> Parser::exprStatement() {
             std::string propName = g->name;
             auto val = expression();
             match(TokenType::Semicolon);
-            return std::make_unique<SetPropertyStmt>(std::move(obj), propName, std::move(val));
+            auto s = std::make_unique<SetPropertyStmt>(std::move(obj), propName, std::move(val));
+            s->line = line;
+            return s;
         }
-        throw std::runtime_error("Invalid assignment target");
+        parseError("Invalid assignment target");
     }
     match(TokenType::Semicolon);
-    return std::make_unique<ExprStmt>(std::move(expr));
+    auto s = std::make_unique<ExprStmt>(std::move(expr));
+    s->line = line;
+    return s;
 }
 
 std::unique_ptr<Expr> Parser::expression() {
@@ -388,7 +443,7 @@ std::unique_ptr<Expr> Parser::primary() {
     } else if (match(TokenType::LParen)) {
         expr = expression();
         if (!match(TokenType::RParen))
-            throw std::runtime_error("Expected ')'");
+            parseError("Expected ')'");
     } else if (match(TokenType::LBracket)) {
         if (check(TokenType::RBracket)) {
             advance();
@@ -402,11 +457,11 @@ std::unique_ptr<Expr> Parser::primary() {
                 while (match(TokenType::Comma)) {
                     std::unique_ptr<Expr> key = expression();
                     if (!match(TokenType::Arrow))
-                        throw std::runtime_error("Expected ':=>' in map literal");
+                        parseError("Expected ':=>' in map literal");
                     mapExpr->entries.push_back({std::move(key), expression()});
                 }
                 if (!match(TokenType::RBracket))
-                    throw std::runtime_error("Expected ']'");
+                    parseError("Expected ']'");
                 expr = std::move(mapExpr);
             } else {
                 // Array literal: [ a, b, c ]
@@ -414,37 +469,37 @@ std::unique_ptr<Expr> Parser::primary() {
                 elements.push_back(std::move(first));
                 while (match(TokenType::Comma)) elements.push_back(expression());
                 if (!match(TokenType::RBracket))
-                    throw std::runtime_error("Expected ']'");
+                    parseError("Expected ']'");
                 expr = std::make_unique<ArrayExpr>(std::move(elements));
             }
         }
     } else if (match(TokenType::Fn)) {
         if (!match(TokenType::LParen))
-            throw std::runtime_error("Expected '(' after 'fn'");
+            parseError("Expected '(' after 'fn'");
         std::vector<std::string> params;
         if (!check(TokenType::RParen)) {
             if (peek().type != TokenType::Identifier)
-                throw std::runtime_error("Expected parameter name");
+                parseError("Expected parameter name");
             params.push_back(advance().value);
             while (match(TokenType::Comma)) {
                 if (peek().type != TokenType::Identifier)
-                    throw std::runtime_error("Expected parameter name");
+                    parseError("Expected parameter name");
                 params.push_back(advance().value);
             }
         }
         if (!match(TokenType::RParen))
-            throw std::runtime_error("Expected ')'");
+            parseError("Expected ')'");
         if (!match(TokenType::LBrace))
-            throw std::runtime_error("Expected '{' for lambda body");
+            parseError("Expected '{' for lambda body");
         auto blockStmt = blockStatement();
         BlockStmt* bs = dynamic_cast<BlockStmt*>(blockStmt.get());
         if (!bs)
-            throw std::runtime_error("Expected block");
+            parseError("Expected block");
         auto body = std::make_unique<BlockStmt>();
         body->statements = std::move(bs->statements);
         expr = std::make_unique<LambdaExpr>(std::move(params), std::move(body));
     } else {
-        throw std::runtime_error("Unexpected token");
+        parseError("Unexpected token");
     }
     return postfix(std::move(expr));
 }
@@ -453,18 +508,18 @@ std::unique_ptr<Expr> Parser::postfix(std::unique_ptr<Expr> expr) {
     for (;;) {
         if (match(TokenType::Dot)) {
             if (peek().type != TokenType::Identifier)
-                throw std::runtime_error("Expected property name");
+                parseError("Expected property name");
             std::string name = advance().value;
             expr = std::make_unique<GetExpr>(std::move(expr), name);
         } else if (match(TokenType::LParen)) {
             auto args = exprList();
             if (!match(TokenType::RParen))
-                throw std::runtime_error("Expected ')'");
+                parseError("Expected ')'");
             expr = std::make_unique<CallExpr>(std::move(expr), std::move(args));
         } else if (match(TokenType::LBracket)) {
             auto indexExpr = expression();
             if (!match(TokenType::RBracket))
-                throw std::runtime_error("Expected ']'");
+                parseError("Expected ']'");
             expr = std::make_unique<IndexExpr>(std::move(expr), std::move(indexExpr));
         } else {
             break;

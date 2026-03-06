@@ -2,22 +2,26 @@
 
 #include "lexer.hpp"
 #include "ast.hpp"
+#include <string>
 #include <vector>
 #include <memory>
 
 class Parser {
 public:
-    Parser(std::vector<Token> tokens);
+    Parser(std::vector<Token> tokens, std::string sourceName = "");
     std::vector<std::unique_ptr<Stmt>> parse();
 
 private:
     std::vector<Token> tokens_;
     size_t pos_;
+    std::string sourceName_;
 
     const Token& peek();
     const Token& advance();
     bool check(TokenType type);
     bool match(TokenType type);
+
+    void parseError(const std::string& msg);
 
     std::unique_ptr<Stmt> statement();
     std::unique_ptr<Stmt> printStatement();

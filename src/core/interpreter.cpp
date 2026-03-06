@@ -587,7 +587,7 @@ std::string Interpreter::resolveImportPath(const std::string& path) {
         candidate = tryPath(base, path);
         if (fileExists(candidate)) return candidate;
     }
-    throw std::runtime_error("Module not found: " + path);
+    runtimeError("Module not found: " + path);
 }
 
 std::string Interpreter::resolvePath(const std::string& path) {
@@ -643,7 +643,7 @@ bool Interpreter::servePublic(const std::string& path) {
 
 std::string Interpreter::readFile(const std::string& path) {
     std::ifstream f(path);
-    if (!f) throw std::runtime_error("Cannot open file: " + path);
+    if (!f) runtimeError("Cannot open file: " + path);
     std::stringstream ss;
     ss << f.rdbuf();
     return ss.str();
@@ -696,6 +696,7 @@ bool Interpreter::saveImagePpm(const std::string& path) const {
 
 void Interpreter::interpret(const std::vector<std::unique_ptr<Stmt>>& statements,
                             const std::string& currentFilePath) {
+    currentFile_ = currentFilePath;
     currentDir_ = dirname(currentFilePath);
     loadGlobalConfig();
     loadConfig(currentDir_);
@@ -801,11 +802,11 @@ void Interpreter::streamChunkInternal(const std::string& s) {
 void Interpreter::callHandler() {
     auto it = variables_.find(handlerClassName_);
     if (it == variables_.end() || !std::holds_alternative<std::shared_ptr<MeltClass>>(it->second))
-        throw std::runtime_error("Handler not set or invalid: " + handlerClassName_);
+        runtimeError("Handler not set or invalid: " + handlerClassName_);
     auto klass = std::get<std::shared_ptr<MeltClass>>(it->second);
     auto mit = klass->methods.find("handle");
     if (mit == klass->methods.end())
-        throw std::runtime_error("Handler class has no handle() method: " + handlerClassName_);
+        runtimeError("Handler class has no handle() method: " + handlerClassName_);
     auto obj = std::make_shared<MeltObject>();
     obj->klass = klass;
     Value prevThis = this_;
@@ -828,11 +829,11 @@ void Interpreter::setMcpHandlerClassName(const std::string& s) { mcpHandlerClass
 void Interpreter::callMcpHandler() {
     auto it = variables_.find(mcpHandlerClassName_);
     if (it == variables_.end() || !std::holds_alternative<std::shared_ptr<MeltClass>>(it->second))
-        throw std::runtime_error("MCP handler not set or invalid: " + mcpHandlerClassName_);
+        runtimeError("MCP handler not set or invalid: " + mcpHandlerClassName_);
     auto klass = std::get<std::shared_ptr<MeltClass>>(it->second);
     auto mit = klass->methods.find("handle");
     if (mit == klass->methods.end())
-        throw std::runtime_error("MCP handler class has no handle() method: " + mcpHandlerClassName_);
+        runtimeError("MCP handler class has no handle() method: " + mcpHandlerClassName_);
     auto obj = std::make_shared<MeltObject>();
     obj->klass = klass;
     Value prevThis = this_;
@@ -1048,7 +1049,7 @@ void Interpreter::registerBuiltins() {
 #else
     {
         auto httpStub = [](Interpreter*, std::vector<Value>) -> Value {
-            throw std::runtime_error("Melt embedded build: HTTP server not available");
+            runtimeError("Melt embedded build: HTTP server not available");
         };
         variables_["getRequestPath"] = reg(httpStub);
         variables_["getRequestMethod"] = reg(httpStub);
@@ -1512,11 +1513,10 @@ void Interpreter::registerBuiltins() {
         return v;
     });
     variables_["vectorAdd"] = reg([vecFromValue](Interpreter* i, std::vector<Value> args) -> Value {
-        (void)i;
-        if (args.size() < 2) throw std::runtime_error("vectorAdd requires two vectors");
+        if (args.size() < 2) i->runtimeError("vectorAdd requires two vectors");
         auto a = vecFromValue(args[0]);
         auto b = vecFromValue(args[1]);
-        if (a->dim != b->dim) throw std::runtime_error("vectorAdd: vectors must have same dimension");
+        if (a->dim != b->dim) i->runtimeError("vectorAdd: vectors must have same dimension");
         auto r = std::make_shared<MeltVec>();
         r->dim = a->dim;
         r->x = a->x + b->x;
@@ -1525,11 +1525,10 @@ void Interpreter::registerBuiltins() {
         return r;
     });
     variables_["vectorSub"] = reg([vecFromValue](Interpreter* i, std::vector<Value> args) -> Value {
-        (void)i;
-        if (args.size() < 2) throw std::runtime_error("vectorSub requires two vectors");
+        if (args.size() < 2) i->runtimeError("vectorSub requires two vectors");
         auto a = vecFromValue(args[0]);
         auto b = vecFromValue(args[1]);
-        if (a->dim != b->dim) throw std::runtime_error("vectorSub: vectors must have same dimension");
+        if (a->dim != b->dim) i->runtimeError("vectorSub: vectors must have same dimension");
         auto r = std::make_shared<MeltVec>();
         r->dim = a->dim;
         r->x = a->x - b->x;
@@ -1538,8 +1537,7 @@ void Interpreter::registerBuiltins() {
         return r;
     });
     variables_["vectorScale"] = reg([vecFromValue](Interpreter* i, std::vector<Value> args) -> Value {
-        (void)i;
-        if (args.size() < 2) throw std::runtime_error("vectorScale requires vector and number");
+        if (args.size() < 2) i->runtimeError("vectorScale requires vector and number");
         auto v = vecFromValue(args[0]);
         double s = (std::holds_alternative<double>(args[1])) ? std::get<double>(args[1]) : 0;
         auto r = std::make_shared<MeltVec>();
@@ -1550,26 +1548,23 @@ void Interpreter::registerBuiltins() {
         return r;
     });
     variables_["vectorLength"] = reg([vecFromValue](Interpreter* i, std::vector<Value> args) -> Value {
-        (void)i;
-        if (args.empty()) throw std::runtime_error("vectorLength requires a vector");
+        if (args.empty()) i->runtimeError("vectorLength requires a vector");
         auto v = vecFromValue(args[0]);
         double len = std::sqrt(v->x * v->x + v->y * v->y + v->z * v->z);
         return len;
     });
     variables_["vectorDot"] = reg([vecFromValue](Interpreter* i, std::vector<Value> args) -> Value {
-        (void)i;
-        if (args.size() < 2) throw std::runtime_error("vectorDot requires two vectors");
+        if (args.size() < 2) i->runtimeError("vectorDot requires two vectors");
         auto a = vecFromValue(args[0]);
         auto b = vecFromValue(args[1]);
-        if (a->dim != b->dim) throw std::runtime_error("vectorDot: vectors must have same dimension");
+        if (a->dim != b->dim) i->runtimeError("vectorDot: vectors must have same dimension");
         return a->x * b->x + a->y * b->y + a->z * b->z;
     });
     variables_["vectorCross"] = reg([vecFromValue](Interpreter* i, std::vector<Value> args) -> Value {
-        (void)i;
-        if (args.size() < 2) throw std::runtime_error("vectorCross requires two 3D vectors");
+        if (args.size() < 2) i->runtimeError("vectorCross requires two 3D vectors");
         auto a = vecFromValue(args[0]);
         auto b = vecFromValue(args[1]);
-        if (a->dim != 3 || b->dim != 3) throw std::runtime_error("vectorCross requires 3D vectors");
+        if (a->dim != 3 || b->dim != 3) i->runtimeError("vectorCross requires 3D vectors");
         auto r = std::make_shared<MeltVec>();
         r->dim = 3;
         r->x = a->y * b->z - a->z * b->y;
@@ -1578,37 +1573,33 @@ void Interpreter::registerBuiltins() {
         return r;
     });
     variables_["vectorX"] = reg([vecFromValue](Interpreter* i, std::vector<Value> args) -> Value {
-        (void)i;
-        if (args.empty()) throw std::runtime_error("vectorX requires a vector");
+        if (args.empty()) i->runtimeError("vectorX requires a vector");
         return vecFromValue(args[0])->x;
     });
     variables_["vectorY"] = reg([vecFromValue](Interpreter* i, std::vector<Value> args) -> Value {
-        (void)i;
-        if (args.empty()) throw std::runtime_error("vectorY requires a vector");
+        if (args.empty()) i->runtimeError("vectorY requires a vector");
         return vecFromValue(args[0])->y;
     });
     variables_["vectorZ"] = reg([vecFromValue](Interpreter* i, std::vector<Value> args) -> Value {
-        (void)i;
-        if (args.empty()) throw std::runtime_error("vectorZ requires a vector");
+        if (args.empty()) i->runtimeError("vectorZ requires a vector");
         return vecFromValue(args[0])->z;
     });
     variables_["vectorDim"] = reg([vecFromValue](Interpreter* i, std::vector<Value> args) -> Value {
-        (void)i;
-        if (args.empty()) throw std::runtime_error("vectorDim requires a vector");
+        if (args.empty()) i->runtimeError("vectorDim requires a vector");
         return (double)vecFromValue(args[0])->dim;
     });
     // GUI render: image buffer (RGB 0-255), then save as PPM
     variables_["imageCreate"] = reg([](Interpreter* i, std::vector<Value> args) -> Value {
         int w = args.size() > 0 && std::holds_alternative<double>(args[0]) ? (int)std::get<double>(args[0]) : 0;
         int h = args.size() > 1 && std::holds_alternative<double>(args[1]) ? (int)std::get<double>(args[1]) : 0;
-        if (w <= 0 || h <= 0 || w > 8192 || h > 8192) throw std::runtime_error("imageCreate: width and height must be 1..8192");
+        if (w <= 0 || h <= 0 || w > 8192 || h > 8192) i->runtimeError("imageCreate: width and height must be 1..8192");
         i->imageWidth_ = w;
         i->imageHeight_ = h;
         i->imageData_.assign((size_t)(w * h * 3), 0);
         return true;
     });
     variables_["imageFill"] = reg([](Interpreter* i, std::vector<Value> args) -> Value {
-        if (i->imageData_.empty()) throw std::runtime_error("No image; call imageCreate first");
+        if (i->imageData_.empty()) i->runtimeError("No image; call imageCreate first");
         int r = 0, g = 0, b = 0;
         if (args.size() >= 3 && std::holds_alternative<double>(args[0]) && std::holds_alternative<double>(args[1]) && std::holds_alternative<double>(args[2])) {
             r = (int)std::get<double>(args[0]) & 255;
@@ -1625,7 +1616,7 @@ void Interpreter::registerBuiltins() {
         return true;
     });
     variables_["imageSetPixel"] = reg([](Interpreter* i, std::vector<Value> args) -> Value {
-        if (i->imageData_.empty()) throw std::runtime_error("No image; call imageCreate first");
+        if (i->imageData_.empty()) i->runtimeError("No image; call imageCreate first");
         if (args.size() < 2) return false;
         int x = (int)std::get<double>(args[0]);
         int y = (int)std::get<double>(args[1]);
@@ -1646,8 +1637,8 @@ void Interpreter::registerBuiltins() {
         return true;
     });
     variables_["imageDrawLine"] = reg([](Interpreter* i, std::vector<Value> args) -> Value {
-        if (i->imageData_.empty()) throw std::runtime_error("No image; call imageCreate first");
-        if (args.size() < 4) throw std::runtime_error("imageDrawLine requires x1, y1, x2, y2");
+        if (i->imageData_.empty()) i->runtimeError("No image; call imageCreate first");
+        if (args.size() < 4) i->runtimeError("imageDrawLine requires x1, y1, x2, y2");
         int x1 = (int)std::get<double>(args[0]);
         int y1 = (int)std::get<double>(args[1]);
         int x2 = (int)std::get<double>(args[2]);
@@ -1667,15 +1658,14 @@ void Interpreter::registerBuiltins() {
 #ifdef USE_GUI
     variables_["imagePreview"] = reg([](Interpreter* i, std::vector<Value> args) -> Value {
         (void)args;
-        if (i->imageData_.empty()) throw std::runtime_error("No image; call imageCreate first");
+        if (i->imageData_.empty()) i->runtimeError("No image; call imageCreate first");
         runImagePreviewWindow(i->imageWidth_, i->imageHeight_, i->imageData_.data());
         return false;
     });
 #else
     variables_["imagePreview"] = reg([](Interpreter* i, std::vector<Value> args) -> Value {
-        (void)i;
         (void)args;
-        throw std::runtime_error("Melt was not built with GUI support. Use: make with-gui (requires SDL2)");
+        i->runtimeError("Melt was not built with GUI support. Use: make with-gui (requires SDL2)");
     });
 #endif
     variables_["base64Encode"] = reg([](Interpreter* i, std::vector<Value> args) -> Value {
@@ -1726,7 +1716,15 @@ std::shared_ptr<MeltClass> Interpreter::getJsonObjectClass() {
     return jsonObjectClass_;
 }
 
+void Interpreter::runtimeError(const std::string& msg) {
+    std::string out;
+    if (!currentFile_.empty()) out += currentFile_ + ": ";
+    out += "line " + std::to_string(currentLine_) + ": " + msg;
+    throw std::runtime_error(out);
+}
+
 void Interpreter::execute(Stmt& stmt) {
+    currentLine_ = stmt.line;
     if (auto p = dynamic_cast<PrintStmt*>(&stmt)) { executePrint(*p); return; }
     if (auto p = dynamic_cast<ExprStmt*>(&stmt)) { executeExprStmt(*p); return; }
     if (auto p = dynamic_cast<ImportStmt*>(&stmt)) { executeImport(*p); return; }
@@ -1760,7 +1758,7 @@ Value Interpreter::evaluate(const Expr& expr) {
     if (auto p = dynamic_cast<const IndexExpr*>(&expr)) return evaluateIndex(*p);
     if (auto p = dynamic_cast<const UnaryExpr*>(&expr)) return evaluateUnary(*p);
     if (auto p = dynamic_cast<const BinaryExpr*>(&expr)) return evaluateBinary(*p);
-    throw std::runtime_error("Unknown expression type");
+    runtimeError("Unknown expression type");
 }
 
 void Interpreter::executePrint(const PrintStmt& stmt) {
@@ -1777,7 +1775,7 @@ void Interpreter::executeImport(const ImportStmt& stmt) {
     std::string resolved = resolveImportPath(stmt.path);
     if (importedPaths_.count(resolved)) {
         if (!stmt.asName.empty()) {
-            throw std::runtime_error("import \"...\" as name cannot be used after the module was already imported without 'as'");
+            runtimeError("import \"...\" as name cannot be used after the module was already imported without 'as'");
         }
         return;
     }
@@ -1785,10 +1783,12 @@ void Interpreter::executeImport(const ImportStmt& stmt) {
     std::string source = readFile(resolved);
     Lexer lexer(source);
     auto tokens = lexer.tokenize();
-    Parser parser(std::move(tokens));
+    Parser parser(std::move(tokens), resolved);
     auto parsed = parser.parse();
     std::string prevDir = currentDir_;
+    std::string prevFile = currentFile_;
     currentDir_ = dirname(resolved);
+    currentFile_ = resolved;
 
     if (stmt.asName.empty()) {
         for (const auto& s : parsed) execute(*s);
@@ -1806,6 +1806,7 @@ void Interpreter::executeImport(const ImportStmt& stmt) {
     }
 
     currentDir_ = prevDir;
+    currentFile_ = prevFile;
 }
 
 void Interpreter::executeLet(const LetStmt& stmt) {
@@ -1828,7 +1829,7 @@ void Interpreter::executeSetProperty(const SetPropertyStmt& stmt) {
     Value objVal = evaluate(*stmt.object);
     auto* obj = std::get_if<std::shared_ptr<MeltObject>>(&objVal);
     if (!obj || !*obj)
-        throw std::runtime_error("Expected object for property assignment");
+        runtimeError("Expected object for property assignment");
     setField(**obj, stmt.name, evaluate(*stmt.value));
 }
 
@@ -1838,14 +1839,14 @@ void Interpreter::executeSetIndex(const SetIndexStmt& stmt) {
     if (auto* obj = std::get_if<std::shared_ptr<MeltObject>>(&baseVal)) {
         if (obj->get()) {
             if (!std::holds_alternative<std::string>(idxVal))
-                throw std::runtime_error("Object index must be string");
+                runtimeError("Object index must be string");
             setField(**obj, std::get<std::string>(idxVal), evaluate(*stmt.value));
             return;
         }
     }
     auto* arr = std::get_if<std::shared_ptr<MeltArray>>(&baseVal);
     if (!arr || !*arr)
-        throw std::runtime_error("Expected array or object for index assignment");
+        runtimeError("Expected array or object for index assignment");
     size_t i = 0;
     if (std::holds_alternative<double>(idxVal)) i = (size_t)std::get<double>(idxVal);
     if (i >= (*arr)->data.size()) (*arr)->data.resize(i + 1);
@@ -1854,7 +1855,7 @@ void Interpreter::executeSetIndex(const SetIndexStmt& stmt) {
 
 void Interpreter::executeAssign(const AssignStmt& stmt) {
     if (variables_.find(stmt.name) == variables_.end())
-        throw std::runtime_error("Unknown variable: " + stmt.name);
+        runtimeError("Unknown variable: " + stmt.name);
     variables_[stmt.name] = evaluate(*stmt.expr);
 }
 
@@ -1912,7 +1913,7 @@ void Interpreter::executeForeach(const ForeachStmt& stmt) {
         return;
     }
 
-    throw std::runtime_error("foreach supports array or object");
+    runtimeError("foreach supports array or object");
 }
 
 void Interpreter::executeWhile(const WhileStmt& stmt) {
@@ -1967,20 +1968,20 @@ Value Interpreter::evaluateVar(const VarExpr& expr) {
         auto fit = obj.fields.find(expr.name);
         if (fit != obj.fields.end()) return fit->second;
     }
-    throw std::runtime_error("Unknown variable: " + expr.name);
+    runtimeError("Unknown variable: " + expr.name);
 }
 
 Value Interpreter::evaluateAssignExpr(const AssignExpr& expr) {
     Value v = evaluate(*expr.value);
     if (variables_.find(expr.name) == variables_.end())
-        throw std::runtime_error("Unknown variable: " + expr.name);
+        runtimeError("Unknown variable: " + expr.name);
     variables_[expr.name] = v;
     return v;
 }
 
 Value Interpreter::evaluateThis(const ThisExpr&) {
     if (!std::holds_alternative<std::shared_ptr<MeltObject>>(this_))
-        throw std::runtime_error("'this' used outside of method");
+        runtimeError("'this' used outside of method");
     return this_;
 }
 
@@ -1988,7 +1989,7 @@ Value Interpreter::evaluateGet(const GetExpr& expr) {
     Value objVal = evaluate(*expr.object);
     if (auto* obj = std::get_if<std::shared_ptr<MeltObject>>(&objVal))
         return getField(*obj, expr.name);
-    throw std::runtime_error("Expected object for property access");
+    runtimeError("Expected object for property access");
 }
 
 Value Interpreter::evaluateCall(const CallExpr& expr) {
@@ -2003,7 +2004,7 @@ Value Interpreter::evaluateCall(const CallExpr& expr) {
         if (it != (*klass)->methods.end()) {
             const MeltMethod& init = it->second;
             if (init.params.size() != expr.args.size())
-                throw std::runtime_error("init argument count mismatch");
+                runtimeError("init argument count mismatch");
             std::vector<std::string> paramNames = init.params;
             for (size_t i = 0; i < paramNames.size(); ++i) {
                 Value argVal = evaluate(*expr.args[i]);
@@ -2024,10 +2025,10 @@ Value Interpreter::evaluateCall(const CallExpr& expr) {
         this_ = bm->receiver;
         auto it = bm->receiver->klass->methods.find(bm->methodName);
         if (it == bm->receiver->klass->methods.end())
-            throw std::runtime_error("Method not found: " + bm->methodName);
+            runtimeError("Method not found: " + bm->methodName);
         const MeltMethod& m = it->second;
         if (m.params.size() != expr.args.size())
-            throw std::runtime_error("Argument count mismatch for " + bm->methodName);
+            runtimeError("Argument count mismatch for " + bm->methodName);
         std::vector<std::string> paramNames = m.params;
         for (size_t i = 0; i < paramNames.size(); ++i)
             variables_[paramNames[i]] = evaluate(*expr.args[i]);
@@ -2046,13 +2047,13 @@ Value Interpreter::evaluateCall(const CallExpr& expr) {
         std::vector<Value> args;
         for (const auto& a : expr.args) args.push_back(evaluate(*a));
         if (nf->index >= nativeFunctions_.size())
-            throw std::runtime_error("Invalid native function");
+            runtimeError("Invalid native function");
         return nativeFunctions_[nf->index](this, std::move(args));
     }
 
     if (auto* cl = std::get_if<MeltClosure>(&callee)) {
         if (cl->params.size() != expr.args.size())
-            throw std::runtime_error("Lambda argument count mismatch");
+            runtimeError("Lambda argument count mismatch");
         // Evaluate all arguments in current scope so e.g. mul(n, 2) can resolve 'n' from caller
         std::vector<Value> argValues;
         argValues.reserve(expr.args.size());
@@ -2078,7 +2079,7 @@ Value Interpreter::evaluateCall(const CallExpr& expr) {
         return result;
     }
 
-    throw std::runtime_error("Can only call class constructor, method, built-in, or lambda");
+    runtimeError("Can only call class constructor, method, built-in, or lambda");
 }
 
 Value Interpreter::evaluateLambda(const LambdaExpr& expr) {
@@ -2096,7 +2097,7 @@ Value Interpreter::getField(std::shared_ptr<MeltObject> obj, const std::string& 
     auto mit = obj->klass->methods.find(name);
     if (mit != obj->klass->methods.end())
         return BoundMethod{obj, name};
-    throw std::runtime_error("Unknown property: " + name);
+    runtimeError("Unknown property: " + name);
 }
 
 void Interpreter::setField(MeltObject& obj, const std::string& name, Value v) {
@@ -2122,7 +2123,7 @@ Value Interpreter::evaluateMap(const MapExpr& expr) {
         else if (std::holds_alternative<bool>(keyVal))
             key = std::get<bool>(keyVal) ? "true" : "false";
         else
-            throw std::runtime_error("Map key must be string, number, or boolean");
+            runtimeError("Map key must be string, number, or boolean");
         setField(*obj, key, evaluate(*kv.second));
     }
     return obj;
@@ -2134,7 +2135,7 @@ Value Interpreter::evaluateIndex(const IndexExpr& expr) {
     if (auto* obj = std::get_if<std::shared_ptr<MeltObject>>(&baseVal)) {
         if (obj->get()) {
             if (!std::holds_alternative<std::string>(idxVal))
-                throw std::runtime_error("Object index must be string");
+                runtimeError("Object index must be string");
             const std::string& key = std::get<std::string>(idxVal);
             auto it = (*obj)->fields.find(key);
             if (it != (*obj)->fields.end()) return it->second;
@@ -2142,9 +2143,9 @@ Value Interpreter::evaluateIndex(const IndexExpr& expr) {
         }
     }
     auto* arr = std::get_if<std::shared_ptr<MeltArray>>(&baseVal);
-    if (!arr || !*arr) throw std::runtime_error("Expected array or object for index");
+    if (!arr || !*arr) runtimeError("Expected array or object for index");
     size_t i = std::holds_alternative<double>(idxVal) ? (size_t)std::get<double>(idxVal) : 0;
-    if (i >= (*arr)->data.size()) throw std::runtime_error("Array index out of range");
+    if (i >= (*arr)->data.size()) runtimeError("Array index out of range");
     return (*arr)->data[i];
 }
 

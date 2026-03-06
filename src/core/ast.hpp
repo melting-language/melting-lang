@@ -93,6 +93,7 @@ struct LambdaExpr : Expr {
 };
 
 struct Stmt {
+    int line = 0;  // source line for error reporting
     virtual ~Stmt() = default;
 };
 
