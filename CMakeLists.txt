@@ -39,6 +39,7 @@ find_package(SDL2 REQUIRED)
 pkg_check_modules(SQLITE3 REQUIRED sqlite3)
 pkg_check_modules(MYSQL mysqlclient)
 pkg_check_modules(QRENCODE REQUIRED IMPORTED_TARGET libqrencode)
+pkg_check_modules(LIBZIP libzip)
 
 
 configure_file(config.h.in ${CMAKE_BINARY_DIR}/config.h)
@@ -46,6 +47,7 @@ configure_file(config.h.in ${CMAKE_BINARY_DIR}/config.h)
 message(STATUS "SDL2 Libs: ${SDL2_LIBRARIES}")
 message(STATUS "SDL2 Includes: ${SDL2_INCLUDE_DIRS}")
 message(STATUS "MySQL found: ${MYSQL_FOUND}")
+message(STATUS "libzip found: ${LIBZIP_FOUND}")
 
 set(SOURCES
     src/main.cpp

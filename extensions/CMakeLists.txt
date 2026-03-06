@@ -5,26 +5,38 @@ foreach(child ${children})
     if(IS_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/${child})
         # Check if the .cpp file exists (e.g., extensions/os/os.cpp)
         set(source_file "${child}/${child}.cpp")
-        
+
         if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/${source_file}")
-            # Define the shared library name (e.g., ext_os)
-            set(lib_name "ext_${child}")
+            # zip extension requires libzip
+            if(child STREQUAL "zip" AND NOT LIBZIP_FOUND)
+                message(STATUS "Skipping extension ${child}: libzip not found")
+            else()
+                # Define the shared library name (e.g., ext_os)
+                set(lib_name "ext_${child}")
 
-            add_library(${lib_name} MODULE ${source_file})
+                add_library(${lib_name} MODULE ${source_file})
 
-            # Ensure the output name is exactly what you want (e.g., os.so)
-            set_target_properties(${lib_name} PROPERTIES 
-                PREFIX ""
-                LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/modules
-                OUTPUT_NAME ${child}
-            )
+                # Ensure the output name is exactly what you want (e.g., os.so)
+                set_target_properties(${lib_name} PROPERTIES
+                    PREFIX ""
+                    LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/modules
+                    OUTPUT_NAME ${child}
+                )
 
-            # Optional: Include paths if they need headers from the core
-            target_include_directories(${lib_name} PRIVATE ${MELT_INCLUDE_HEADERS})
+                # Optional: Include paths if they need headers from the core
+                target_include_directories(${lib_name} PRIVATE ${MELT_INCLUDE_HEADERS})
 
-            # Extensions resolve Interpreter::registerBuiltin etc. from the main binary at load time.
-            if(CMAKE_SYSTEM_NAME STREQUAL "Darwin")
-                target_link_options(${lib_name} PRIVATE "LINKER:-undefined,dynamic_lookup")
+                # zip extension links libzip
+                if(child STREQUAL "zip" AND LIBZIP_FOUND)
+                    target_include_directories(${lib_name} PRIVATE ${LIBZIP_INCLUDE_DIRS})
+                    target_link_directories(${lib_name} PRIVATE ${LIBZIP_LIBRARY_DIRS})
+                    target_link_libraries(${lib_name} PRIVATE ${LIBZIP_LIBRARIES})
+                endif()
+
+                # Extensions resolve Interpreter::registerBuiltin etc. from the main binary at load time.
+                if(CMAKE_SYSTEM_NAME STREQUAL "Darwin")
+                    target_link_options(${lib_name} PRIVATE "LINKER:-undefined,dynamic_lookup")
+                endif()
             endif()
         endif()
     endif()
