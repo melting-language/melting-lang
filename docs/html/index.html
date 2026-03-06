@@ -202,6 +202,7 @@
           <a href="#builtins-os">OS (ext)</a>
           <a href="#builtins-ffmpeg">FFmpeg (ext)</a>
           <a href="#builtins-datetime">DateTime (ext)</a>
+          <a href="#builtins-zip">Zip (ext)</a>
         </div>
         <a href="#http-mvc">HTTP Server & MVC</a>
         <a href="#official-website">Official Website</a>
@@ -577,6 +578,17 @@ obj.getX();  // returns 1</code></pre>
           <tr><td><code>dateStyle(timestamp, style)</code></td><td>Predefined format: <code>"short"</code>, <code>"long"</code>, <code>"datetime"</code>, <code>"date"</code>, <code>"time"</code>.</td></tr>
           <tr><td><code>dateZoneOffset()</code></td><td>Local UTC offset in hours (e.g. 5.5 for IST).</td></tr>
           <tr><td><code>dateUtcOffsetString()</code></td><td>Offset as string (e.g. <code>+05:30</code>, <code>-08:00</code>).</td></tr>
+        </table>
+        <h3 id="builtins-zip">Zip (extension, <code>extension = zip</code>)</h3>
+        <p>Create, extract, list, and read ZIP archives. Requires <strong>libzip</strong> (e.g. <code>brew install libzip</code>). Build: <code>CMake (see extensions/)</code>; enable with <code>extension = zip</code>. See <code>extensions/zip/README.md</code> and <code>examples/zip_demo.melt</code>.</p>
+        <table>
+          <tr><th>Function</th><th>Description</th></tr>
+          <tr><td><code>zipVersion()</code></td><td>Extension version string.</td></tr>
+          <tr><td><code>zipCreate(zipPath, paths)</code></td><td>Create ZIP at <code>zipPath</code>; <code>paths</code> = array of file paths to add.</td></tr>
+          <tr><td><code>zipExtract(zipPath, destDir)</code></td><td>Extract all entries into <code>destDir</code>.</td></tr>
+          <tr><td><code>zipList(zipPath)</code></td><td>Array of entry names (strings).</td></tr>
+          <tr><td><code>zipReadEntry(zipPath, entryName)</code></td><td>Read one entry’s contents as string.</td></tr>
+          <tr><td><code>zipAddFiles(zipPath, paths)</code></td><td>Add files to existing (or new) ZIP; <code>paths</code> = array of file paths.</td></tr>
         </table>
       </section>
 
