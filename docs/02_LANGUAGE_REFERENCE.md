@@ -50,6 +50,7 @@ Melt is dynamically typed. Values can be:
 - **Strings:** double-quoted; supports `\n`, `\r`, `\t`, `\\`, `\"`.
 - **Numbers:** integer or decimal.
 - **Arrays:** `[ expr, expr, ... ]`; elements can be any type.
+- **Map (object) literal:** `[ "key" :=> value, ... ]` — PHP-style; produces a JSON-like object. Keys are strings (or numbers/booleans, coerced to string). Use for nested key-value data.
 - **Booleans:** `true` and `false` are literals; comparisons and built-ins also produce boolean values.
 
 ## Expressions and operators

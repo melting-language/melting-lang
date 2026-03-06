@@ -212,6 +212,7 @@ private:
     Value evaluateCall(const CallExpr& expr);
     Value evaluateLambda(const LambdaExpr& expr);
     Value evaluateArray(const ArrayExpr& expr);
+    Value evaluateMap(const MapExpr& expr);
     Value evaluateIndex(const IndexExpr& expr);
     Value evaluateUnary(const UnaryExpr& expr);
     Value evaluateBinary(const BinaryExpr& expr);

@@ -73,6 +73,12 @@ struct ArrayExpr : Expr {
     explicit ArrayExpr(std::vector<std::unique_ptr<Expr>> e) : elements(std::move(e)) {}
 };
 
+// PHP-style map literal: [ "key" :=> value, ... ] -> MeltObject
+struct MapExpr : Expr {
+    std::vector<std::pair<std::unique_ptr<Expr>, std::unique_ptr<Expr>>> entries;
+    MapExpr() = default;
+};
+
 struct IndexExpr : Expr {
     std::unique_ptr<Expr> array;
     std::unique_ptr<Expr> index;

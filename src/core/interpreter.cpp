@@ -1756,6 +1756,7 @@ Value Interpreter::evaluate(const Expr& expr) {
     if (auto p = dynamic_cast<const CallExpr*>(&expr)) return evaluateCall(*p);
     if (auto p = dynamic_cast<const LambdaExpr*>(&expr)) return evaluateLambda(*p);
     if (auto p = dynamic_cast<const ArrayExpr*>(&expr)) return evaluateArray(*p);
+    if (auto p = dynamic_cast<const MapExpr*>(&expr)) return evaluateMap(*p);
     if (auto p = dynamic_cast<const IndexExpr*>(&expr)) return evaluateIndex(*p);
     if (auto p = dynamic_cast<const UnaryExpr*>(&expr)) return evaluateUnary(*p);
     if (auto p = dynamic_cast<const BinaryExpr*>(&expr)) return evaluateBinary(*p);
@@ -2106,6 +2107,25 @@ Value Interpreter::evaluateArray(const ArrayExpr& expr) {
     auto arr = std::make_shared<MeltArray>();
     for (const auto& e : expr.elements) arr->data.push_back(evaluate(*e));
     return arr;
+}
+
+Value Interpreter::evaluateMap(const MapExpr& expr) {
+    auto obj = std::make_shared<MeltObject>();
+    obj->klass = getJsonObjectClass();
+    for (const auto& kv : expr.entries) {
+        Value keyVal = evaluate(*kv.first);
+        std::string key;
+        if (std::holds_alternative<std::string>(keyVal))
+            key = std::get<std::string>(keyVal);
+        else if (std::holds_alternative<double>(keyVal))
+            key = std::to_string(static_cast<int>(std::get<double>(keyVal)));
+        else if (std::holds_alternative<bool>(keyVal))
+            key = std::get<bool>(keyVal) ? "true" : "false";
+        else
+            throw std::runtime_error("Map key must be string, number, or boolean");
+        setField(*obj, key, evaluate(*kv.second));
+    }
+    return obj;
 }
 
 Value Interpreter::evaluateIndex(const IndexExpr& expr) {
