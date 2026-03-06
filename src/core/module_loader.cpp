@@ -66,6 +66,17 @@ static void loadOne(Interpreter* interp, const std::string& path) {
 #else
 static void loadOne(Interpreter* interp, const std::string& path) {
     void* h = dlopen(path.c_str(), RTLD_NOW | RTLD_LOCAL);
+#if defined(__APPLE__)
+    if (!h && path.size() >= 6 && path.compare(path.size() - 6, 6, ".dylib") == 0) {
+        std::string alt = path.substr(0, path.size() - 6) + ".so";
+        h = dlopen(alt.c_str(), RTLD_NOW | RTLD_LOCAL);
+        if (!h) {
+            const char* err = dlerror();
+            std::cerr << "melt: could not load extension '" << path << "': " << (err ? err : "unknown") << "\n";
+            return;
+        }
+    } else
+#endif
     if (!h) {
         const char* err = dlerror();
         std::cerr << "melt: could not load extension '" << path << "': " << (err ? err : "unknown") << "\n";
