@@ -125,6 +125,17 @@ std::vector<Token> Lexer::tokenize() {
             else tokens.push_back(Token(TokenType::Assign, "=", line));
             continue;
         }
+        if (c == ':') {
+            advance();
+            if (peek() == '=' && pos_ + 1 < source_.size() && source_[pos_ + 1] == '>') {
+                advance();
+                advance();
+                tokens.push_back(Token(TokenType::Arrow, ":=>", line));
+            } else {
+                tokens.push_back(Token(TokenType::Colon, ":", line));
+            }
+            continue;
+        }
         if (c == '!') {
             advance();
             if (match('=')) tokens.push_back(Token(TokenType::Ne, "!=", line));

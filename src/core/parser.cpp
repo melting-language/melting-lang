@@ -390,14 +390,34 @@ std::unique_ptr<Expr> Parser::primary() {
         if (!match(TokenType::RParen))
             throw std::runtime_error("Expected ')'");
     } else if (match(TokenType::LBracket)) {
-        std::vector<std::unique_ptr<Expr>> elements;
-        if (!check(TokenType::RBracket)) {
-            elements.push_back(expression());
-            while (match(TokenType::Comma)) elements.push_back(expression());
+        if (check(TokenType::RBracket)) {
+            advance();
+            expr = std::make_unique<ArrayExpr>(std::vector<std::unique_ptr<Expr>>{});
+        } else {
+            std::unique_ptr<Expr> first = expression();
+            if (match(TokenType::Arrow)) {
+                // Map literal: [ "key" => value, ... ]
+                auto mapExpr = std::make_unique<MapExpr>();
+                mapExpr->entries.push_back({std::move(first), expression()});
+                while (match(TokenType::Comma)) {
+                    std::unique_ptr<Expr> key = expression();
+                    if (!match(TokenType::Arrow))
+                        throw std::runtime_error("Expected ':=>' in map literal");
+                    mapExpr->entries.push_back({std::move(key), expression()});
+                }
+                if (!match(TokenType::RBracket))
+                    throw std::runtime_error("Expected ']'");
+                expr = std::move(mapExpr);
+            } else {
+                // Array literal: [ a, b, c ]
+                std::vector<std::unique_ptr<Expr>> elements;
+                elements.push_back(std::move(first));
+                while (match(TokenType::Comma)) elements.push_back(expression());
+                if (!match(TokenType::RBracket))
+                    throw std::runtime_error("Expected ']'");
+                expr = std::make_unique<ArrayExpr>(std::move(elements));
+            }
         }
-        if (!match(TokenType::RBracket))
-            throw std::runtime_error("Expected ']'");
-        expr = std::make_unique<ArrayExpr>(std::move(elements));
     } else if (match(TokenType::Fn)) {
         if (!match(TokenType::LParen))
             throw std::runtime_error("Expected '(' after 'fn'");
