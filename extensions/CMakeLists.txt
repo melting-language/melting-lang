@@ -21,6 +21,11 @@ foreach(child ${children})
 
             # Optional: Include paths if they need headers from the core
             target_include_directories(${lib_name} PRIVATE ${MELT_INCLUDE_HEADERS})
+
+            # Extensions resolve Interpreter::registerBuiltin etc. from the main binary at load time.
+            if(CMAKE_SYSTEM_NAME STREQUAL "Darwin")
+                target_link_options(${lib_name} PRIVATE "LINKER:-undefined,dynamic_lookup")
+            endif()
         endif()
     endif()
 endforeach()

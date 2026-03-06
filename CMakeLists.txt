@@ -20,7 +20,13 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
     link_libraries(dl)
 elseif(CMAKE_SYSTEM_NAME STREQUAL "FreeBSD")
     add_compile_definitions(FREEBSD_OS)
+elseif(CMAKE_SYSTEM_NAME STREQUAL "Darwin")
+    add_compile_definitions(MACOS_OS)
+    # macOS uses -export_dynamic, though often symbols are exported by default
+    set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -Wl,-export_dynamic")
+    # No need to link 'dl'; it's part of libSystem on macOS
 endif()
+
 
 # Melt specific configurations
 set(USE_GUI ON)
