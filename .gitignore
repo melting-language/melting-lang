@@ -4,3 +4,4 @@ scripts/syntax-highlighter-repo-push-me/
 bin/
 build/
 .DS_Store
+Makefile
