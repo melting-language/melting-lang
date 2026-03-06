@@ -201,6 +201,7 @@
           <a href="#builtins-image-optimize">Image optimize (ext)</a>
           <a href="#builtins-os">OS (ext)</a>
           <a href="#builtins-ffmpeg">FFmpeg (ext)</a>
+          <a href="#builtins-datetime">DateTime (ext)</a>
         </div>
         <a href="#http-mvc">HTTP Server & MVC</a>
         <a href="#official-website">Official Website</a>
@@ -342,8 +343,9 @@ while (condition) { }</code></pre>
 let obj = Name(1, 2);
 obj.getX();  // returns 1</code></pre>
         <p><code>init</code> is the constructor. <code>this</code> refers to the current object. <code>return expr;</code> or <code>return;</code> inside a method.</p>
-        <h3 id="lang-arrays">Arrays</h3>
-        <p>Literal <code>[a, b, c]</code>; elements can be any type (numbers, strings, nested arrays, closures). Index: <code>arr[i]</code>, <code>arr[i] = value</code>. Built-ins: <code>arrayCreate()</code> / <code>arrayCreate(v1, v2, ...)</code> (optional initial elements), <code>arrayPush</code>, <code>arrayGet</code>, <code>arraySet</code>, <code>arrayLength</code>.</p>
+        <h3 id="lang-arrays">Arrays and map literal</h3>
+        <p><strong>Array:</strong> literal <code>[a, b, c]</code>; elements can be any type (numbers, strings, nested arrays, closures). Index: <code>arr[i]</code>, <code>arr[i] = value</code>. Built-ins: <code>arrayCreate()</code> / <code>arrayCreate(v1, v2, ...)</code> (optional initial elements), <code>arrayPush</code>, <code>arrayGet</code>, <code>arraySet</code>, <code>arrayLength</code>.</p>
+        <p><strong>Map (nested key-value) literal:</strong> <code>[ "key" :=> value, ... ]</code> — PHP-style; produces a JSON-like object. Use for nested structures (e.g. <code>let store = [ "users" :=> [ [ "id" :=> 1, "name" :=> "Alice" ] ] ]</code>). Keys are strings (or numbers/booleans, coerced to string). Access: <code>store.users[0].name</code>. See <code>examples/store_nested_array.melt</code>.</p>
         <h3 id="lang-import">Import</h3>
         <pre><code>import "path.melt";
 import "path.melt" as M;</code></pre>
@@ -415,6 +417,7 @@ import "path.melt" as M;</code></pre>
           <tr><td><code>jsonEncode(value)</code></td><td>Value → JSON string.</td></tr>
           <tr><td><code>jsonDecode(str)</code></td><td>JSON string → value; objects support <code>obj.field</code>.</td></tr>
           <tr><td><code>objectCreate()</code></td><td>New empty object; use <code>obj.field = value</code> or <code>obj[key] = value</code> (string key), then <code>jsonEncode(obj)</code>.</td></tr>
+          <tr><td><code>[ "key" :=> value, ... ]</code></td><td>Map literal (nested key-value); same shape as <code>objectCreate()</code> + properties. Use <code>:=></code> between key and value. Example: <code>let o = [ "a" :=> 1, "b" :=> [ "x" :=> 2 ] ]</code>.</td></tr>
         </table>
         <p><strong>Dynamic keys:</strong> <code>obj[key]</code> and <code>obj[key] = value</code> when <code>key</code> is a string (e.g. variable). Missing key returns falsy.</p>
         <h3 id="builtins-encoding">Encoding / crypto</h3>
@@ -555,6 +558,26 @@ import "path.melt" as M;</code></pre>
           <tr><td><code>ffprobeDuration(inputPath)</code></td><td>Duration in seconds (number), or <code>-1</code> on error.</td></tr>
           <tr><td><code>ffprobeInfo(inputPath)</code></td><td>JSON string with format and streams; use <code>jsonDecode()</code> in Melt.</td></tr>
           <tr><td><code>ffmpegGenerateTestVideo(outputPath [, duration [, width [, height]]])</code></td><td>Generate a short test video (lavfi testsrc). Defaults: 2 s, 320×240.</td></tr>
+        </table>
+        <h3 id="builtins-datetime">DateTime (extension, <code>extension = datetime</code>)</h3>
+        <p>Date and time: timestamps, current date/time, format, parse, add, diff, components, timezone. Build: <code>CMake (see extensions/)</code>; enable with <code>extension = datetime</code>. See <code>extensions/datetime/README.md</code> and <code>examples/datetime_demo.melt</code>.</p>
+        <table>
+          <tr><th>Function</th><th>Description</th></tr>
+          <tr><td><code>dateVersion()</code></td><td>Extension version string.</td></tr>
+          <tr><td><code>dateTimestamp()</code></td><td>Current Unix timestamp (seconds).</td></tr>
+          <tr><td><code>dateTimestampMs()</code></td><td>Current Unix timestamp (milliseconds).</td></tr>
+          <tr><td><code>dateNow()</code></td><td>Current local date/time as <code>YYYY-MM-DDTHH:MM:SS</code>.</td></tr>
+          <tr><td><code>dateCurrentDate()</code></td><td>Current date <code>YYYY-MM-DD</code>.</td></tr>
+          <tr><td><code>dateCurrentTime()</code></td><td>Current time <code>HH:MM:SS</code>.</td></tr>
+          <tr><td><code>dateFormat(timestamp [, format])</code></td><td>Format with strftime-style <code>format</code> (default <code>%Y-%m-%d %H:%M:%S</code>).</td></tr>
+          <tr><td><code>dateParse(dateString)</code></td><td>Parse ISO-like <code>YYYY-MM-DD</code> or <code>YYYY-MM-DDTHH:MM:SS</code> to Unix timestamp.</td></tr>
+          <tr><td><code>dateAdd(timestamp, amount, unit)</code></td><td>Add time; <code>unit</code>: <code>"second"</code>, <code>"minute"</code>, <code>"hour"</code>, <code>"day"</code>, <code>"month"</code>, <code>"year"</code>.</td></tr>
+          <tr><td><code>dateDiff(timestamp1, timestamp2, unit)</code></td><td>Difference (t2 − t1) in given unit.</td></tr>
+          <tr><td><code>dateYear(timestamp)</code> … <code>dateSecond(timestamp)</code></td><td>Extract year, month, day, hour, minute, second.</td></tr>
+          <tr><td><code>dateWeekday(timestamp)</code></td><td>Day of week 0 (Sun)–6 (Sat).</td></tr>
+          <tr><td><code>dateStyle(timestamp, style)</code></td><td>Predefined format: <code>"short"</code>, <code>"long"</code>, <code>"datetime"</code>, <code>"date"</code>, <code>"time"</code>.</td></tr>
+          <tr><td><code>dateZoneOffset()</code></td><td>Local UTC offset in hours (e.g. 5.5 for IST).</td></tr>
+          <tr><td><code>dateUtcOffsetString()</code></td><td>Offset as string (e.g. <code>+05:30</code>, <code>-08:00</code>).</td></tr>
         </table>
       </section>
 
