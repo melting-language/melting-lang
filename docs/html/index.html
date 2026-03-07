@@ -145,6 +145,56 @@
       margin-bottom: 1.5rem;
     }
     .quick-ref h3 { margin-top: 0; }
+    .topnav {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 48px;
+      background: var(--bg-card);
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      padding: 0 1.25rem;
+      gap: 1.5rem;
+      z-index: 100;
+    }
+    .topnav a {
+      color: var(--text-muted);
+      text-decoration: none;
+      font-size: 0.95rem;
+    }
+    .topnav a:hover { color: var(--accent); }
+    .topnav a.active { color: var(--accent); font-weight: 500; }
+    .topnav .brand { color: var(--text); font-weight: 600; margin-right: 0.5rem; }
+    .topnav .dropdown { position: relative; }
+    .topnav .dropdown > a { display: flex; align-items: center; }
+    .topnav .dropdown > a::after { content: " ▾"; font-size: 0.7em; opacity: 0.8; }
+    .topnav .dropdown-content {
+      position: absolute;
+      top: 100%;
+      left: 0;
+      min-width: 200px;
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-top: none;
+      border-radius: 0 0 6px 6px;
+      padding: 0.35rem 0;
+      visibility: hidden;
+      opacity: 0;
+      transition: visibility 0.15s, opacity 0.15s;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+    }
+    .topnav .dropdown:hover .dropdown-content { visibility: visible; opacity: 1; }
+    .topnav .dropdown-content a {
+      display: block;
+      padding: 0.5rem 1.25rem;
+      color: var(--text-muted);
+      font-size: 0.9rem;
+    }
+    .topnav .dropdown-content a:hover { background: var(--bg); color: var(--accent); }
+    body { padding-top: 48px; }
+    .layout { min-height: calc(100vh - 48px); }
     @media (max-width: 900px) {
       .layout { flex-direction: column; }
       .sidebar { width: 100%; height: auto; position: relative; padding: 1rem; border-right: none; border-bottom: 1px solid var(--border); }
@@ -155,6 +205,17 @@
   </style>
 </head>
 <body>
+  <nav class="topnav">
+    <a href="../index.html" class="brand">Melt</a>
+    <a href="../index.html" class="active">Documentation</a>
+    <div class="dropdown">
+      <a href="../dev.html">Developer</a>
+      <div class="dropdown-content">
+        <a href="../dev.html">Documentation</a>
+        <a href="../tutorial_implement_syntax.html">Simple Tutorial</a>
+      </div>
+    </div>
+  </nav>
   <div class="layout">
     <aside class="sidebar">
       <h2>Documentation</h2>
@@ -207,6 +268,7 @@
         <a href="#http-mvc">HTTP Server & MVC</a>
         <a href="#official-website">Official Website</a>
         <a href="#examples">Examples</a>
+        <a href="../dev.html">Developer documentation</a>
         <a href="#development-guide">Development guide</a>
         <a href="#module-development-guide">Module development guide</a>
         <a href="#embedded-guide">Embedded guide</a>

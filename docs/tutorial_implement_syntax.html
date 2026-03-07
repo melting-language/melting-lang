@@ -1,0 +1,343 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Melt — Tutorial: Implement New Syntax</title>
+  <style>
+    :root {
+      --bg: #0f172a;
+      --bg-card: #1e293b;
+      --code-bg: #0f172a;
+      --border: #334155;
+      --text: #e2e8f0;
+      --text-muted: #94a3b8;
+      --accent: #38bdf8;
+      --green: #34d399;
+    }
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      margin: 0;
+      font-family: system-ui, -apple-system, 'Segoe UI', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.7;
+      font-size: 15px;
+    }
+    .layout { display: flex; min-height: 100vh; }
+    .sidebar {
+      width: 260px;
+      flex-shrink: 0;
+      background: var(--bg-card);
+      border-right: 1px solid var(--border);
+      padding: 1.5rem 0;
+      position: sticky;
+      top: 0;
+      height: 100vh;
+      overflow-y: auto;
+    }
+    .sidebar h2 {
+      font-size: 0.75rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--text-muted);
+      margin: 0 1.25rem 0.75rem;
+    }
+    .sidebar nav a {
+      display: block;
+      padding: 0.5rem 1.25rem;
+      color: var(--text-muted);
+      text-decoration: none;
+      font-size: 0.9rem;
+      border-left: 3px solid transparent;
+    }
+    .sidebar nav a:hover { color: var(--accent); }
+    .sidebar nav a.active { color: var(--accent); border-left-color: var(--accent); }
+    .main { flex: 1; max-width: 780px; padding: 2.5rem 2rem 4rem; }
+    .wrap { max-width: 820px; }
+    h1 { font-size: 1.85rem; margin-top: 0; color: #fff; border-bottom: 1px solid var(--border); padding-bottom: 0.5rem; }
+    h2 { font-size: 1.35rem; margin-top: 2.5rem; color: var(--accent); }
+    h3 { font-size: 1.1rem; margin-top: 1.5rem; color: var(--text); }
+    h4 { font-size: 1rem; margin-top: 1.25rem; color: var(--text-muted); }
+    p { margin: 0.75rem 0; }
+    ul, ol { margin: 0.75rem 0; padding-left: 1.5rem; }
+    li { margin: 0.35rem 0; }
+    code, pre {
+      font-family: 'Consolas', 'Monaco', monospace;
+      font-size: 0.9rem;
+      background: var(--code-bg);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+    }
+    code { padding: 0.15em 0.4em; }
+    pre { padding: 1rem; overflow-x: auto; margin: 1rem 0; }
+    pre code { padding: 0; border: none; }
+    .step { background: var(--bg-card); border: 1px solid var(--border); border-radius: 8px; padding: 1rem 1.25rem; margin: 1rem 0; }
+    .step strong { color: var(--green); }
+    table { border-collapse: collapse; width: 100%; margin: 1rem 0; font-size: 0.9rem; }
+    th, td { border: 1px solid var(--border); padding: 0.5rem 0.75rem; text-align: left; }
+    th { background: var(--bg-card); color: var(--text-muted); }
+    a { color: var(--accent); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+    hr { border: none; border-top: 1px solid var(--border); margin: 2rem 0; }
+    .topnav {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 48px;
+      background: var(--bg-card);
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      padding: 0 1.25rem;
+      gap: 1.5rem;
+      z-index: 100;
+    }
+    .topnav a {
+      color: var(--text-muted);
+      text-decoration: none;
+      font-size: 0.95rem;
+    }
+    .topnav a:hover { color: var(--accent); }
+    .topnav a.active { color: var(--accent); font-weight: 500; }
+    .topnav .brand { color: var(--text); font-weight: 600; margin-right: 0.5rem; }
+    .topnav .dropdown { position: relative; }
+    .topnav .dropdown > a { display: flex; align-items: center; }
+    .topnav .dropdown > a::after { content: " ▾"; font-size: 0.7em; opacity: 0.8; }
+    .topnav .dropdown-content {
+      position: absolute;
+      top: 100%;
+      left: 0;
+      min-width: 200px;
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-top: none;
+      border-radius: 0 0 6px 6px;
+      padding: 0.35rem 0;
+      visibility: hidden;
+      opacity: 0;
+      transition: visibility 0.15s, opacity 0.15s;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+    }
+    .topnav .dropdown:hover .dropdown-content { visibility: visible; opacity: 1; }
+    .topnav .dropdown-content a {
+      display: block;
+      padding: 0.5rem 1.25rem;
+      color: var(--text-muted);
+      font-size: 0.9rem;
+    }
+    .topnav .dropdown-content a:hover { background: var(--bg); color: var(--accent); }
+    body { padding-top: 48px; }
+    .layout { min-height: calc(100vh - 48px); }
+    @media (max-width: 768px) {
+      .layout { flex-direction: column; }
+      .sidebar { width: 100%; height: auto; position: relative; border-right: none; border-bottom: 1px solid var(--border); }
+      .main { padding: 1.5rem 1rem 3rem; }
+    }
+  </style>
+</head>
+<body>
+  <nav class="topnav">
+    <a href="index.html" class="brand">Melt</a>
+    <a href="index.html">Documentation</a>
+    <div class="dropdown">
+      <a href="dev.html">Developer</a>
+      <div class="dropdown-content">
+        <a href="dev.html">Developer Documentation</a>
+        <a href="tutorial_implement_syntax.html" class="active">Simple Tutorial</a>
+      </div>
+    </div>
+  </nav>
+  <div class="layout">
+    <aside class="sidebar">
+      <h2>Tutorial</h2>
+      <nav>
+        <a href="#intro">Intro</a>
+        <a href="#how-melt-runs">How Melt runs</a>
+        <a href="#what-were-adding">What we're adding</a>
+        <a href="#step1">Step 1: Lexer</a>
+        <a href="#step2">Step 2: AST</a>
+        <a href="#step3">Step 3: Parser</a>
+        <a href="#step4">Step 4: Interpreter</a>
+        <a href="#step5">Step 5: Build & test</a>
+        <a href="#checklist">Checklist</a>
+        <a href="#next">Next</a>
+        <a href="#see-also">See also</a>
+      </nav>
+    </aside>
+    <main class="main">
+      <div class="wrap">
+        <h1>Tutorial: Implement New Syntax in Melt</h1>
+
+        <p id="intro">This tutorial walks you through adding a new syntax feature to the Melt language <strong>from start to finish</strong>. You will add a <code>say expr;</code> statement that prints an expression to stdout (like <code>print</code>, but with a different keyword). By the end, you will know exactly which files to edit and in what order.</p>
+        <p><strong>Time:</strong> about 15–20 minutes.<br><strong>You need:</strong> the Melt source tree and a successful build (<code>cmake -B build && cmake --build build</code>).</p>
+
+        <h2 id="how-melt-runs">How Melt runs your code</h2>
+        <p>Melt turns source code into a running program in four stages:</p>
+        <pre><code>Source (text)  →  Lexer (tokens)  →  Parser (AST)  →  Interpreter (run)</code></pre>
+        <ul>
+          <li><strong>Lexer</strong> — Reads characters and produces <strong>tokens</strong> (keywords, identifiers, numbers, strings, punctuation).</li>
+          <li><strong>Parser</strong> — Consumes tokens and builds an <strong>AST</strong> (Abstract Syntax Tree): a tree of statement and expression nodes.</li>
+          <li><strong>Interpreter</strong> — Walks the AST and <strong>executes</strong> each node (evaluate expressions, run statements).</li>
+        </ul>
+        <p>To add new syntax, you add a <strong>token</strong>, an <strong>AST node</strong>, <strong>parsing</strong> for it, and <strong>execution</strong> for it. We do that in four steps.</p>
+
+        <h2 id="what-were-adding">What we're adding</h2>
+        <p>We'll add a <strong>statement</strong>:</p>
+        <pre><code>say "Hello!";
+say 1 + 2;</code></pre>
+        <p>Behavior: evaluate the expression and print it to stdout with a newline (same as <code>print</code>). The goal is to learn the pipeline; the behavior is intentionally simple.</p>
+
+        <hr>
+
+        <h2 id="step1">Step 1: Lexer — recognize the keyword</h2>
+        <p>The lexer turns <code>say</code> in the source into a token. All keyword handling is in <strong><code>src/core/lexer.cpp</code></strong> inside <code>identifier()</code>.</p>
+
+        <h4>1.1 Add the token type</h4>
+        <p><strong>File:</strong> <code>src/core/lexer.hpp</code></p>
+        <p>In the <code>TokenType</code> enum, add <code>Say</code> next to <code>Print</code>:</p>
+        <pre><code>Print, Let, If, Else, While, ...
+Say,   // add this</code></pre>
+
+        <h4>1.2 Emit the token for the keyword</h4>
+        <p><strong>File:</strong> <code>src/core/lexer.cpp</code></p>
+        <p>In <code>Lexer::identifier()</code>, after the line that handles <code>"print"</code>, add:</p>
+        <pre><code>if (value == "print") return Token(TokenType::Print, value, start);
+if (value == "say")   return Token(TokenType::Say, value, start);   // add this
+if (value == "let") return Token(TokenType::Let, value, start);</code></pre>
+        <p>Now the source <code>say "hello";</code> produces the token sequence: <code>Say</code>, <code>String("hello")</code>, <code>Semicolon</code>.</p>
+
+        <h2 id="step2">Step 2: AST — define the statement node</h2>
+        <p>The AST is the in-memory representation of the program. Each kind of statement has a struct in <strong><code>src/core/ast.hpp</code></strong>.</p>
+
+        <h4>2.1 Add a struct for <code>say expr;</code></h4>
+        <p><strong>File:</strong> <code>src/core/ast.hpp</code></p>
+        <p>Add a new statement type after <code>PrintStmt</code>:</p>
+        <pre><code>struct PrintStmt : Stmt {
+    std::unique_ptr&lt;Expr&gt; expr;
+    PrintStmt(std::unique_ptr&lt;Expr&gt; e) : expr(std::move(e)) {}
+};
+
+struct SayStmt : Stmt {
+    std::unique_ptr&lt;Expr&gt; expr;
+    SayStmt(std::unique_ptr&lt;Expr&gt; e) : expr(std::move(e)) {}
+};</code></pre>
+        <p>So: one expression child, same shape as <code>PrintStmt</code>. No other AST changes are needed.</p>
+
+        <h2 id="step3">Step 3: Parser — build the AST from tokens</h2>
+        <p>The parser turns the token stream into AST nodes. We need to (a) call a new parser when we see <code>Say</code>, and (b) implement that parser.</p>
+
+        <h4>3.1 Dispatch in <code>statement()</code></h4>
+        <p><strong>File:</strong> <code>src/core/parser.cpp</code></p>
+        <p>In <code>Parser::statement()</code>, add a branch for <code>Say</code>:</p>
+        <pre><code>if (match(TokenType::Print)) return printStatement();
+if (match(TokenType::Say))   return sayStatement();   // add this
+if (match(TokenType::Let)) return letStatement();</code></pre>
+
+        <h4>3.2 Implement <code>sayStatement()</code></h4>
+        <p><strong>File:</strong> <code>src/core/parser.cpp</code></p>
+        <p>Add the function (e.g. right after <code>printStatement()</code>):</p>
+        <pre><code>std::unique_ptr&lt;Stmt&gt; Parser::sayStatement() {
+    int line = peek().line;
+    auto expr = expression();
+    match(TokenType::Semicolon);
+    auto s = std::make_unique&lt;SayStmt&gt;(std::move(expr));
+    s->line = line;
+    return s;
+}</code></pre>
+        <p>This: reads one expression, expects a semicolon, wraps the expression in a <code>SayStmt</code>, sets the line for error messages, and returns it.</p>
+
+        <h4>3.3 Declare the function in the header</h4>
+        <p><strong>File:</strong> <code>src/core/parser.hpp</code></p>
+        <p>In the <code>private</code> section with the other statement parsers, add:</p>
+        <pre><code>std::unique_ptr&lt;Stmt&gt; sayStatement();</code></pre>
+
+        <h2 id="step4">Step 4: Interpreter — execute the statement</h2>
+        <p>The interpreter walks the AST. For each statement it calls <code>execute(stmt)</code>, which dispatches by type. We add a branch for <code>SayStmt</code> and implement the behavior.</p>
+
+        <h4>4.1 Declare the executor</h4>
+        <p><strong>File:</strong> <code>src/core/interpreter.hpp</code></p>
+        <p>With the other <code>execute*</code> declarations, add:</p>
+        <pre><code>void executeSay(const SayStmt&amp; stmt);</code></pre>
+
+        <h4>4.2 Dispatch in <code>execute()</code></h4>
+        <p><strong>File:</strong> <code>src/core/interpreter.cpp</code></p>
+        <p>In <code>Interpreter::execute(Stmt& stmt)</code>, add (e.g. after <code>PrintStmt</code>):</p>
+        <pre><code>if (auto p = dynamic_cast&lt;PrintStmt*&gt;(&amp;stmt)) { executePrint(*p); return; }
+if (auto p = dynamic_cast&lt;SayStmt*&gt;(&amp;stmt))   { executeSay(*p); return; }   // add this
+if (auto p = dynamic_cast&lt;ExprStmt*&gt;(&amp;stmt)) { executeExprStmt(*p); return; }</code></pre>
+
+        <h4>4.3 Implement <code>executeSay()</code></h4>
+        <p><strong>File:</strong> <code>src/core/interpreter.cpp</code></p>
+        <p>Add the implementation (e.g. after <code>executePrint()</code>):</p>
+        <pre><code>void Interpreter::executeSay(const SayStmt&amp; stmt) {
+    Value v = evaluate(*stmt.expr);
+    printValue(v);
+    std::cout &lt;&lt; "\n";
+}</code></pre>
+        <p>This evaluates the expression, prints it with the existing <code>printValue()</code> helper, then a newline.</p>
+
+        <h2 id="step5">Step 5: Build and test</h2>
+        <p>From the <strong>project root</strong>:</p>
+        <pre><code>cmake --build build</code></pre>
+        <p>Create a test script:</p>
+        <pre><code>echo 'say "Hello from say!"; say 1 + 2;' > test_say.melt
+./build/melt test_say.melt</code></pre>
+        <p>Expected output:</p>
+        <pre><code>Hello from say!
+3</code></pre>
+        <p>If you see that, you've successfully added new syntax.</p>
+
+        <h2 id="checklist">Checklist (quick reference)</h2>
+        <table>
+          <thead><tr><th>Step</th><th>File(s)</th><th>What you did</th></tr></thead>
+          <tbody>
+            <tr><td>1</td><td><code>lexer.hpp</code></td><td>Added <code>Say</code> to <code>TokenType</code> enum.</td></tr>
+            <tr><td>1</td><td><code>lexer.cpp</code></td><td>In <code>identifier()</code>, return <code>Token(TokenType::Say, ...)</code> when <code>value == "say"</code>.</td></tr>
+            <tr><td>2</td><td><code>ast.hpp</code></td><td>Added <code>struct SayStmt</code> with <code>std::unique_ptr&lt;Expr&gt; expr</code>.</td></tr>
+            <tr><td>3</td><td><code>parser.hpp</code></td><td>Declared <code>std::unique_ptr&lt;Stmt&gt; sayStatement();</code></td></tr>
+            <tr><td>3</td><td><code>parser.cpp</code></td><td>In <code>statement()</code>, <code>if (match(TokenType::Say)) return sayStatement();</code> and implemented <code>sayStatement()</code>.</td></tr>
+            <tr><td>4</td><td><code>interpreter.hpp</code></td><td>Declared <code>void executeSay(const SayStmt&amp; stmt);</code></td></tr>
+            <tr><td>4</td><td><code>interpreter.cpp</code></td><td>In <code>execute()</code>, dispatch to <code>executeSay</code> for <code>SayStmt</code>; implemented <code>executeSay()</code>.</td></tr>
+          </tbody>
+        </table>
+
+        <h2 id="next">Next: other kinds of syntax</h2>
+        <ul>
+          <li><strong>New expression</strong> (e.g. unary operator <code>#expr</code>): add a token, an expression struct in <code>ast.hpp</code>, parse it in the expression chain (e.g. in <code>primary()</code> or a new precedence level), and in <code>evaluate()</code> handle the new node with <code>evaluateX()</code>.</li>
+          <li><strong>Statement with a block</strong> (e.g. <code>repeat n { ... }</code>): add keyword token, AST node with expression + <code>BlockStmt</code> body, parse keyword + expr + <code>{</code> + statements + <code>}</code>, and in <code>execute()</code> loop and run the block.</li>
+        </ul>
+        <p>The pattern is always: <strong>Lexer → AST → Parser → Interpreter</strong>. See <a href="06_DEVELOPMENT_ADDING_SYNTAX.md">06_DEVELOPMENT_ADDING_SYNTAX.md</a> for more examples and the full checklist.</p>
+
+        <hr>
+        <h2 id="see-also">See also</h2>
+        <ul>
+          <li><a href="01_GETTING_STARTED.md">Getting Started</a> — build and run</li>
+          <li><a href="dev.html">Developer Documentation</a> — project structure and flow</li>
+          <li><a href="06_DEVELOPMENT_ADDING_SYNTAX.md">Development: Adding syntax</a> — reference and extra patterns</li>
+        </ul>
+      </div>
+    </main>
+  </div>
+  <script>
+    (function() {
+      var nav = document.querySelector('.sidebar nav');
+      if (!nav) return;
+      var links = nav.querySelectorAll('a[href^="#"]');
+      function updateActive() {
+        var top = window.scrollY || document.documentElement.scrollTop;
+        links.forEach(function(a) {
+          var id = a.getAttribute('href').slice(1);
+          var el = id ? document.getElementById(id) : null;
+          a.classList.toggle('active', el && el.offsetTop <= top + 100 && el.offsetTop + el.offsetHeight > top);
+        });
+      }
+      window.addEventListener('scroll', updateActive);
+      window.addEventListener('load', updateActive);
+    })();
+  </script>
+</body>
+</html>

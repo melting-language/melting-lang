@@ -1,0 +1,450 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Melt — Developer Documentation</title>
+  <style>
+    :root {
+      --bg: #0f172a;
+      --bg-card: #1e293b;
+      --code-bg: #0f172a;
+      --border: #334155;
+      --text: #e2e8f0;
+      --text-muted: #94a3b8;
+      --accent: #38bdf8;
+      --green: #34d399;
+    }
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      margin: 0;
+      font-family: system-ui, -apple-system, 'Segoe UI', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.7;
+      font-size: 15px;
+    }
+    .wrap { max-width: 820px; margin: 0 auto; padding: 2rem 1.5rem 4rem; }
+    h1 { font-size: 1.85rem; margin-top: 0; color: #fff; border-bottom: 1px solid var(--border); padding-bottom: 0.5rem; }
+    h2 { font-size: 1.35rem; margin-top: 2.5rem; color: var(--accent); }
+    h3 { font-size: 1.1rem; margin-top: 1.5rem; color: var(--text); }
+    p { margin: 0.75rem 0; }
+    ul, ol { margin: 0.75rem 0; padding-left: 1.5rem; }
+    li { margin: 0.35rem 0; }
+    code, pre {
+      font-family: 'Consolas', 'Monaco', monospace;
+      font-size: 0.9rem;
+      background: var(--code-bg);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+    }
+    code { padding: 0.15em 0.4em; }
+    pre { padding: 1rem; overflow-x: auto; margin: 1rem 0; }
+    pre code { padding: 0; border: none; }
+    .step { background: var(--bg-card); border: 1px solid var(--border); border-radius: 8px; padding: 1rem 1.25rem; margin: 1rem 0; }
+    .step strong { color: var(--green); }
+    table { border-collapse: collapse; width: 100%; margin: 1rem 0; font-size: 0.9rem; }
+    th, td { border: 1px solid var(--border); padding: 0.5rem 0.75rem; text-align: left; }
+    th { background: var(--bg-card); color: var(--text-muted); }
+    a { color: var(--accent); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+    .layout { display: flex; min-height: 100vh; }
+    .sidebar {
+      width: 260px;
+      flex-shrink: 0;
+      background: var(--bg-card);
+      border-right: 1px solid var(--border);
+      padding: 1.5rem 0;
+      position: sticky;
+      top: 0;
+      height: 100vh;
+      overflow-y: auto;
+    }
+    .sidebar h2 {
+      font-size: 0.75rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--text-muted);
+      margin: 0 1.25rem 0.75rem;
+    }
+    .sidebar nav a {
+      display: block;
+      padding: 0.5rem 1.25rem;
+      color: var(--text-muted);
+      text-decoration: none;
+      font-size: 0.9rem;
+      border-left: 3px solid transparent;
+    }
+    .sidebar nav a:hover { color: var(--accent); }
+    .sidebar nav a.active { color: var(--accent); border-left-color: var(--accent); }
+    .flow-diagram { margin: 1.5rem 0; font-size: 0.9rem; }
+    .flow-row { display: flex; align-items: center; margin: 0.5rem 0; flex-wrap: wrap; gap: 0.25rem; }
+    .flow-box {
+      background: var(--bg-card); border: 1px solid var(--border); border-radius: 6px;
+      padding: 0.5rem 0.75rem; font-family: monospace;
+    }
+    .flow-box.entry { border-color: var(--green); }
+    .flow-arrow { color: var(--text-muted); padding: 0 0.35rem; }
+    .flow-label { color: var(--text-muted); font-size: 0.85rem; margin-left: 0.5rem; }
+    .main {
+      flex: 1;
+      max-width: 780px;
+      padding: 2.5rem 2rem 4rem;
+    }
+    .topnav {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 48px;
+      background: var(--bg-card);
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      padding: 0 1.25rem;
+      gap: 1.5rem;
+      z-index: 100;
+    }
+    .topnav a {
+      color: var(--text-muted);
+      text-decoration: none;
+      font-size: 0.95rem;
+    }
+    .topnav a:hover { color: var(--accent); }
+    .topnav a.active { color: var(--accent); font-weight: 500; }
+    .topnav .brand { color: var(--text); font-weight: 600; margin-right: 0.5rem; }
+    .topnav .dropdown { position: relative; }
+    .topnav .dropdown > a { display: flex; align-items: center; }
+    .topnav .dropdown > a::after { content: " ▾"; font-size: 0.7em; opacity: 0.8; }
+    .topnav .dropdown-content {
+      position: absolute;
+      top: 100%;
+      left: 0;
+      min-width: 200px;
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-top: none;
+      border-radius: 0 0 6px 6px;
+      padding: 0.35rem 0;
+      visibility: hidden;
+      opacity: 0;
+      transition: visibility 0.15s, opacity 0.15s;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+    }
+    .topnav .dropdown:hover .dropdown-content { visibility: visible; opacity: 1; }
+    .topnav .dropdown-content a {
+      display: block;
+      padding: 0.5rem 1.25rem;
+      color: var(--text-muted);
+      font-size: 0.9rem;
+    }
+    .topnav .dropdown-content a:hover { background: var(--bg); color: var(--accent); }
+    body { padding-top: 48px; }
+    .layout { min-height: calc(100vh - 48px); }
+    @media (max-width: 768px) {
+      .layout { flex-direction: column; }
+      .sidebar { width: 100%; height: auto; position: relative; border-right: none; border-bottom: 1px solid var(--border); }
+      .main { padding: 1.5rem 1rem 3rem; }
+    }
+  </style>
+</head>
+<body>
+  <nav class="topnav">
+    <a href="index.html" class="brand">Melt</a>
+    <a href="index.html">Documentation</a>
+    <div class="dropdown">
+      <a href="dev.html" class="active">Developer</a>
+      <div class="dropdown-content">
+        <a href="dev.html">Documentation</a>
+        <a href="tutorial_implement_syntax.html">Simple Tutorial</a>
+      </div>
+    </div>
+  </nav>
+  <div class="layout">
+    <aside class="sidebar">
+      <h2>Developer guide</h2>
+      <nav>
+        <a href="#prerequisites">1. Prerequisites</a>
+        <a href="#get-source">2. Get the source</a>
+        <a href="#project-structure">3. Project structure</a>
+        <a href="#compile">4. How to compile</a>
+        <a href="#process">5. How Melt works</a>
+        <a href="#development-process">6. Development process</a>
+        <a href="#extensions">7. Extensions</a>
+        <a href="#config">8. Config and build</a>
+        <a href="#test-run">9. Test and run</a>
+        <a href="#release">10. Release build</a>
+      </nav>
+    </aside>
+    <main class="main">
+      <div class="wrap">
+    <h1>Melt — Developer Documentation</h1>
+    <p>This guide explains how to develop the Melt language: get the source, compile it, understand the process, and make changes step by step.</p>
+
+    <h2 id="prerequisites">1. Prerequisites</h2>
+    <ul>
+      <li><strong>C++17</strong> compiler (GCC, Clang, or MSVC)</li>
+      <li><strong>CMake</strong> 3.16 or newer (main build system)</li>
+      <li>For full build: <strong>SDL2</strong>, <strong>SQLite3</strong>, <strong>libqrencode</strong> (pkg-config). Optional: MySQL client, libzip (for zip extension).</li>
+      <li>On Windows (MinGW): <strong>MSYS2 MINGW64</strong> and <code>g++</code>; no CMake required if using <code>Makefile.win</code>.</li>
+    </ul>
+    <p>Install examples:</p>
+    <ul>
+      <li><strong>Ubuntu/Debian:</strong> <code>sudo apt install build-essential cmake pkg-config libsdl2-dev libsqlite3-dev libqrencode-dev</code></li>
+      <li><strong>macOS:</strong> <code>brew install cmake pkg-config sdl2 sqlite qrencode</code></li>
+      <li><strong>Fedora:</strong> <code>dnf install cmake gcc-c++ SDL2-devel sqlite-devel qrencode-devel</code></li>
+    </ul>
+
+    <h2 id="get-source">2. Get the source</h2>
+    <div class="step">
+      <strong>Step 1.</strong> Clone the repository (or download a release):<br>
+      <pre><code>git clone https://github.com/melting-language/melting-lang.git
+cd melting-lang</code></pre>
+    </div>
+    <p>All commands below are run from the <strong>project root</strong> (<code>melting-lang/</code>).</p>
+
+    <h2 id="project-structure">3. Project structure (file by file)</h2>
+    <p>Below is a file-by-file overview of the repository. The compiler pipeline lives in <code>src/core/</code>; optional features are in <code>src/http/</code>, <code>src/sqlite/</code>, etc.</p>
+
+    <h3>Root and config</h3>
+    <table>
+      <thead><tr><th>File</th><th>Role</th></tr></thead>
+      <tbody>
+        <tr><td><code>src/main.cpp</code></td><td><strong>Entry point.</strong> Parses CLI (script path or no-args help). Reads the script file, creates a Lexer and Parser, gets the AST, then creates the Interpreter, sets the binary directory for extensions, and calls <code>interpret()</code>. No language logic here—only orchestration.</td></tr>
+        <tr><td><code>config.h.in</code></td><td><strong>CMake config template.</strong> Contains <code>#cmakedefine USE_GUI</code>, <code>USE_MYSQL</code>, <code>USE_SQLITE</code>, <code>USE_QR</code> and <code>@PROJECT_VERSION_*@</code>. CMake generates <code>build/config.h</code> from this.</td></tr>
+        <tr><td><code>config_win.h</code></td><td><strong>Windows (Makefile.win) config.</strong> Not processed by CMake. Copied to <code>build/config.h</code> by Makefile.win so the compiler finds version and <code>#undef</code> for USE_* (minimal build without GUI/SQLite/MySQL/QR).</td></tr>
+      </tbody>
+    </table>
+
+    <h3>src/core/ — language core</h3>
+    <table>
+      <thead><tr><th>File</th><th>Role</th></tr></thead>
+      <tbody>
+        <tr><td><code>lexer.hpp</code></td><td><strong>Token definitions.</strong> Declares <code>TokenType</code> (Number, String, Identifier, keywords like Print, Let, If, Class, etc.) and <code>struct Token</code> (type, value, line). Declares class <code>Lexer</code> with <code>tokenize()</code>.</td></tr>
+        <tr><td><code>lexer.cpp</code></td><td><strong>Lexer implementation.</strong> Reads source character-by-character: <code>number()</code>, <code>string_()</code>, <code>identifier()</code> (and keyword detection), skips whitespace and comments. Produces the token stream consumed by the parser.</td></tr>
+        <tr><td><code>ast.hpp</code></td><td><strong>Abstract Syntax Tree.</strong> Defines all node types: expression nodes (<code>NumberExpr</code>, <code>StringExpr</code>, <code>BinaryExpr</code>, <code>CallExpr</code>, <code>GetExpr</code>, <code>ArrayExpr</code>, <code>MapExpr</code>, etc.) and statement nodes (<code>PrintStmt</code>, <code>LetStmt</code>, <code>BlockStmt</code>, <code>IfStmt</code>, <code>ClassStmt</code>, etc.). No logic—pure data structures.</td></tr>
+        <tr><td><code>parser.hpp</code></td><td><strong>Parser declaration.</strong> Class <code>Parser</code> with <code>parse()</code> returning a vector of statements. Declares internal helpers: <code>statement()</code>, <code>expression()</code>, <code>assignment()</code>, <code>term()</code>, <code>factor()</code>, <code>primary()</code>, and per-statement parsers (<code>printStatement()</code>, <code>letStatement()</code>, <code>classStatement()</code>, etc.).</td></tr>
+        <tr><td><code>parser.cpp</code></td><td><strong>Parser implementation.</strong> Consumes tokens and builds AST nodes. Recursive descent: <code>statement()</code> dispatches to specific statement parsers; <code>expression()</code> through <code>primary()</code> handle precedence. Parses classes, methods, blocks, if/while/for, imports, try/catch.</td></tr>
+        <tr><td><code>interpreter.hpp</code></td><td><strong>Interpreter and runtime types.</strong> Defines <code>Value</code> (variant: number, string, bool, MeltObject, MeltClass, MeltArray, MeltVec, BoundMethod, NativeFunc, MeltClosure), <code>MeltObject</code>, <code>MeltClass</code>, <code>MeltMethod</code>, <code>MeltArray</code>, <code>MeltVec</code>. Class <code>Interpreter</code>: <code>interpret()</code>, <code>execute()</code>, <code>evaluate()</code>, HTTP/MCP hooks, and registration points for built-ins.</td></tr>
+        <tr><td><code>interpreter.cpp</code></td><td><strong>Interpreter implementation.</strong> Walks the AST: <code>execute(Stmt)</code> for statements, <code>evaluate(Expr)</code> for expressions. Handles variables, assignment, method calls, <code>this</code>, classes and instances, returns, imports. Registers all built-ins (print, arrays, JSON, file I/O, HTTP, SQLite, MySQL, QR, MCP, etc.). Largest file in the project.</td></tr>
+        <tr><td><code>module_loader.hpp</code></td><td><strong>Module loader declaration.</strong> Declares <code>loadExtensions(Interpreter*, binDir, extensionDir, extensionList)</code> to load shared libraries and call <code>melt_register(interp)</code> in each.</td></tr>
+        <tr><td><code>module_loader.cpp</code></td><td><strong>Module loader implementation.</strong> Resolves paths (e.g. <code>binDir/modules/zip.so</code>), dlopen/dlsym (or platform equivalent), calls <code>melt_register</code>. Used at interpreter startup when <code>extension</code> is set in melt.ini / melt.config.</td></tr>
+      </tbody>
+    </table>
+
+    <h3>src/http/ — HTTP server</h3>
+    <table>
+      <thead><tr><th>File</th><th>Role</th></tr></thead>
+      <tbody>
+        <tr><td><code>http_server.hpp</code></td><td>Declares <code>runHttpServer(Interpreter*, port)</code>. The server blocks and, for each request, sets request data on the interpreter and calls the handler.</td></tr>
+        <tr><td><code>http_server.cpp</code></td><td>Implements TCP listen, accept, read request (path, method, body, headers), calls <code>interp->setRequestData()</code> and <code>interp->callHandler()</code>, then sends the response. Built-ins like <code>listen(port)</code> and <code>setHandler("ClassName")</code> are registered in interpreter.cpp and call into this.</td></tr>
+      </tbody>
+    </table>
+
+    <h3>src/sqlite/ — SQLite built-in</h3>
+    <table>
+      <thead><tr><th>File</th><th>Role</th></tr></thead>
+      <tbody>
+        <tr><td><code>sqlite_builtin.hpp</code></td><td>Declares the SQLite registration function (called from interpreter when <code>USE_SQLITE</code> is defined).</td></tr>
+        <tr><td><code>sqlite_builtin.cpp</code></td><td>Implements <code>sqliteOpen</code>, <code>sqliteExec</code>, <code>sqliteQuery</code>, <code>sqliteFetchRow</code>, etc., and registers them as built-ins. Wraps the SQLite C API.</td></tr>
+      </tbody>
+    </table>
+
+    <h3>src/mysql/ — MySQL built-in</h3>
+    <table>
+      <thead><tr><th>File</th><th>Role</th></tr></thead>
+      <tbody>
+        <tr><td><code>mysql_builtin.hpp</code></td><td>Declares MySQL built-in registration (used only when <code>USE_MYSQL</code> is defined).</td></tr>
+        <tr><td><code>mysql_builtin.cpp</code></td><td>Implements <code>mysqlConnect</code>, <code>mysqlQuery</code>, <code>mysqlFetchRow</code>, <code>mysqlClose</code>. Compiled and linked only if CMake finds MySQL client and <code>USE_MYSQL=ON</code>.</td></tr>
+      </tbody>
+    </table>
+
+    <h3>src/gui/ — image preview</h3>
+    <table>
+      <thead><tr><th>File</th><th>Role</th></tr></thead>
+      <tbody>
+        <tr><td><code>gui_window.hpp</code></td><td>Declares the GUI window API used by the interpreter to show image previews (e.g. from image built-ins).</td></tr>
+        <tr><td><code>gui_window.cpp</code></td><td>Implements an SDL2 window that displays a buffer as an image. Used when <code>USE_GUI</code> is defined; otherwise the interpreter uses a no-op or stub.</td></tr>
+      </tbody>
+    </table>
+
+    <h3>src/qr/ — QR code</h3>
+    <table>
+      <thead><tr><th>File</th><th>Role</th></tr></thead>
+      <tbody>
+        <tr><td><code>qr_builtin.hpp</code></td><td>Declares QR built-in registration.</td></tr>
+        <tr><td><code>qr_builtin.cpp</code></td><td>Implements <code>qrGenerate</code> (or similar) using libqrencode and registers it. Wired in interpreter.cpp when <code>USE_QR</code> is defined.</td></tr>
+      </tbody>
+    </table>
+
+    <h3>extensions/</h3>
+    <p>Each subdirectory (e.g. <code>extensions/zip/</code>, <code>extensions/datetime/</code>) contains <code>&lt;name&gt;.cpp</code> and optionally a README. The top-level <code>extensions/CMakeLists.txt</code> discovers them and builds shared libraries into <code>build/modules/</code>. Each extension implements <code>extern "C" void melt_register(Interpreter*);</code> and registers its own built-ins. Examples: <code>zip</code> (ZIP create/extract; needs libzip), <code>datetime</code> (date/time helpers), <code>os</code>, <code>ffmpeg</code>, <code>image_optimize</code>, <code>headless_browser</code>, <code>example</code>.</p>
+
+    <h3>Other directories</h3>
+    <ul>
+      <li><code>examples/</code> — Melt scripts and small projects (hello.melt, server, mcp_server_framework, admin_panel_sqlite, etc.).</li>
+      <li><code>docs/</code> — Markdown and HTML documentation (getting started, language reference, built-ins, this dev guide).</li>
+    </ul>
+
+    <h3>Flow: entry point to execution (how the files work together)</h3>
+    <p>When you run <code>./build/melt script.melt</code>, execution follows this path. Each step passes data to the next until the script finishes (or starts an HTTP/MCP server and blocks).</p>
+
+    <div class="flow-diagram">
+      <div class="flow-row">
+        <span class="flow-box entry">main.cpp</span>
+        <span class="flow-arrow">→</span>
+        <span class="flow-label">1. Read script file, get source string</span>
+      </div>
+      <div class="flow-row">
+        <span class="flow-box">Lexer (lexer.cpp)</span>
+        <span class="flow-arrow">→</span>
+        <span class="flow-label">2. Tokenize: source → list of Token</span>
+      </div>
+      <div class="flow-row">
+        <span class="flow-box">Parser (parser.cpp)</span>
+        <span class="flow-arrow">→</span>
+        <span class="flow-label">3. Parse: tokens → AST (vector of Stmt)</span>
+      </div>
+      <div class="flow-row">
+        <span class="flow-box">Interpreter (interpreter.cpp)</span>
+        <span class="flow-arrow">→</span>
+        <span class="flow-label">4. interpret(): load extensions, then execute each Stmt</span>
+      </div>
+      <div class="flow-row">
+        <span class="flow-box">execute() / evaluate()</span>
+        <span class="flow-arrow">→</span>
+        <span class="flow-label">5. Walk AST: run statements, evaluate expressions, call built-ins</span>
+      </div>
+      <div class="flow-row">
+        <span class="flow-box">(optional) HTTP / MCP</span>
+        <span class="flow-arrow">→</span>
+        <span class="flow-label">6. If script called listen() or runMcp(), process runs until exit</span>
+      </div>
+    </div>
+
+    <p><strong>Step-by-step:</strong></p>
+    <ol>
+      <li><strong>main.cpp</strong> — Entry point. Reads <code>script.melt</code> into a string. If no argument, prints usage and exits.</li>
+      <li><strong>Lexer</strong> — <code>Lexer lexer(source); auto tokens = lexer.tokenize();</code> turns the source into a stream of tokens (keywords, identifiers, numbers, strings, operators). Uses <code>lexer.cpp</code>.</li>
+      <li><strong>Parser</strong> — <code>Parser parser(tokens, path); auto statements = parser.parse();</code> consumes tokens and builds an Abstract Syntax Tree (a list of statement nodes). Uses <code>parser.cpp</code> and types from <code>ast.hpp</code>.</li>
+      <li><strong>Interpreter</strong> — <code>Interpreter interpreter; interpreter.setBinDir(binDir); interpreter.interpret(statements, entryPath);</code> First, the interpreter loads extensions (module_loader) if configured, and registers all built-ins (from interpreter.cpp and optional sqlite/mysql/qr/http). Then it runs <code>interpret()</code>.</li>
+      <li><strong>Execution</strong> — <code>interpret()</code> loops over each top-level statement and calls <code>execute(stmt)</code>. For each statement type (e.g. PrintStmt, LetStmt, IfStmt), it runs the corresponding logic; for expressions it calls <code>evaluate(expr)</code>. Variables are stored in the interpreter’s scope; method calls resolve to Melt methods or to registered built-ins (e.g. <code>print</code>, <code>jsonEncode</code>). Imports load another file and run its AST in the same interpreter.</li>
+      <li><strong>End or long-running</strong> — When the top-level statements finish, <code>interpret()</code> returns and <code>main</code> exits. If the script called <code>listen(port)</code> or <code>runMcp()</code>, those built-ins block inside the interpreter (HTTP server loop or MCP stdio loop), so the process keeps running until the server is stopped or stdin closes.</li>
+    </ol>
+
+    <p>So the data flow is: <strong>source string → tokens → AST → execution</strong>. The entry point is <code>main.cpp</code>; the “last” step is either normal exit after <code>interpret()</code> returns or process exit after a long-running server stops.</p>
+
+    <h2 id="compile">4. How to compile</h2>
+
+    <h3>Option A: CMake (Linux, macOS, Windows with CMake)</h3>
+    <div class="step">
+      <strong>Step 1.</strong> Configure (creates <code>build/</code> and generates <code>config.h</code>):<br>
+      <pre><code>cmake -B build</code></pre>
+      <strong>Step 2.</strong> Build:<br>
+      <pre><code>cmake --build build</code></pre>
+    </div>
+    <p>Output: <code>build/melt</code> (or <code>build/melt.exe</code> on Windows). Extensions are built into <code>build/modules/</code> (e.g. <code>zip.so</code>, <code>datetime.dylib</code>).</p>
+
+    <h3>Option B: Makefile wrapper (Unix)</h3>
+    <p>The top-level <code>Makefile</code> just calls CMake. No standalone “make compile” of C++; the real build is CMake.</p>
+    <pre><code>make          # same as: cmake -B build && cmake --build build
+make install  # cmake --install build
+make clean    # rm -rf build</code></pre>
+
+    <h3>Option C: Windows without CMake (Makefile.win)</h3>
+    <p>For MinGW (e.g. MSYS2 MINGW64) when you don’t want to use CMake:</p>
+    <div class="step">
+      <strong>Step 1.</strong> Generate <code>config.h</code> (done automatically by the Makefile):<br>
+      <code>build/config.h</code> is created by copying <code>config_win.h</code> into <code>build/</code>.
+      <br><br>
+      <strong>Step 2.</strong> Build:<br>
+      <pre><code>make -f Makefile.win</code></pre>
+    </div>
+    <p>Output: <code>bin/melt.exe</code>. Requires <code>config_win.h</code> in the repo (defines version and disables USE_GUI, USE_MYSQL, USE_SQLITE, USE_QR for a minimal build).</p>
+
+    <h3>Optional: enable MySQL</h3>
+    <pre><code>cmake -B build -DUSE_MYSQL=ON
+cmake --build build</code></pre>
+
+    <h2 id="process">5. How Melt works (pipeline)</h2>
+    <p>When you run <code>./build/melt script.melt</code>, the following happens:</p>
+    <ol>
+      <li><strong>Load script</strong> — <code>main.cpp</code> reads the file and passes it to the interpreter.</li>
+      <li><strong>Lexer</strong> — Source text is turned into <strong>tokens</strong> (keywords, identifiers, numbers, strings, operators). See <code>src/core/lexer.cpp</code>.</li>
+      <li><strong>Parser</strong> — Tokens are turned into an <strong>AST</strong> (Abstract Syntax Tree). See <code>src/core/parser.cpp</code> and <code>ast.hpp</code>.</li>
+      <li><strong>Interpreter</strong> — The AST is executed (evaluate expressions, run statements, call methods). See <code>src/core/interpreter.cpp</code>.</li>
+    </ol>
+    <p>So the pipeline is: <strong>Source → Lexer (tokens) → Parser (AST) → Interpreter (execution)</strong>.</p>
+    <p>Built-ins (e.g. <code>print</code>, <code>jsonEncode</code>, <code>listen</code>) are registered in the interpreter and called when the AST references them.</p>
+
+    <h2 id="development-process">6. Development process</h2>
+    <p>To add or change language features, you usually touch <strong>four places</strong>:</p>
+    <table>
+      <thead>
+        <tr><th>Step</th><th>Where</th><th>What to do</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>1</td><td><code>lexer.hpp</code>, <code>lexer.cpp</code></td><td>Add token type and recognize new keyword/symbol.</td></tr>
+        <tr><td>2</td><td><code>ast.hpp</code></td><td>Add a struct for the new statement or expression.</td></tr>
+        <tr><td>3</td><td><code>parser.hpp</code>, <code>parser.cpp</code></td><td>Parse the new construct and return the new AST node.</td></tr>
+        <tr><td>4</td><td><code>interpreter.hpp</code>, <code>interpreter.cpp</code></td><td>Handle the new AST node in <code>execute()</code> or <code>evaluate()</code> and implement behavior.</td></tr>
+      </tbody>
+    </table>
+    <p><strong>Tutorial:</strong> For a full walkthrough, see <a href="tutorial_implement_syntax.md">Tutorial: Implement syntax</a> (add <code>say expr;</code> step by step). Reference: <a href="06_DEVELOPMENT_ADDING_SYNTAX.md">06_DEVELOPMENT_ADDING_SYNTAX.md</a>. After editing:</p>
+    <pre><code>cmake --build build
+./build/melt test.melt</code></pre>
+
+    <h2 id="extensions">7. Extensions</h2>
+    <p>Extensions are shared libraries that register extra built-ins. They live in <code>extensions/&lt;name&gt;/&lt;name&gt;.cpp</code> and export <code>melt_register(Interpreter*)</code>.</p>
+    <ul>
+      <li>Built by CMake into <code>build/modules/</code> (e.g. <code>zip.so</code>, <code>datetime.dylib</code>).</li>
+      <li>Enabled in <code>melt.ini</code> or <code>melt.config</code>: <code>extension = zip</code> (or comma-separated list).</li>
+    </ul>
+    <p>To add a new extension: add a directory under <code>extensions/</code> with <code>&lt;name&gt;.cpp</code>; the top-level <code>extensions/CMakeLists.txt</code> picks up subdirectories that contain a matching <code>.cpp</code>. See <code>extensions/example/</code> and <code>extensions/README.md</code>-style docs in each extension folder.</p>
+
+    <h2 id="config">8. Config and build options</h2>
+    <ul>
+      <li><strong>config.h</strong> — Generated by CMake from <code>config.h.in</code> (or from <code>config_win.h</code> on Windows with Makefile.win). Defines <code>USE_GUI</code>, <code>USE_MYSQL</code>, <code>USE_SQLITE</code>, <code>USE_QR</code> and version numbers.</li>
+      <li><strong>melt.ini / melt.config</strong> — Runtime config: <code>modulePath</code>, <code>extension</code>, <code>extension_dir</code>. See <code>docs/03_BUILTINS.md</code>.</li>
+    </ul>
+
+    <h2 id="test-run">9. Test and run</h2>
+    <p>From project root:</p>
+    <pre><code>./build/melt examples/hello.melt
+./build/melt examples/mcp_server_framework/main.melt   # MCP server</code></pre>
+    <p>Run with no arguments to execute the built-in demo:</p>
+    <pre><code>./build/melt</code></pre>
+
+    <h2 id="release">10. Release build</h2>
+    <ul>
+      <li><strong>CMake:</strong> <code>cmake -B build -DCMAKE_BUILD_TYPE=Release</code> then <code>cmake --build build</code>.</li>
+      <li><strong>CI:</strong> GitHub Actions (see <code>.github/workflows/release.yml</code>) build on tag push (e.g. <code>v1.4.0</code>) with CMake on Linux/macOS and Makefile.win on Windows; binaries and Debian package are attached to the release.</li>
+      <li>When bumping the version, update <code>CMakeLists.txt</code> (<code>project(melt VERSION x.y.z)</code>) and <code>config_win.h</code> (MAJOR, MINOR, PATCH) so Windows Makefile.win stays in sync.</li>
+    </ul>
+
+    <hr style="border: none; border-top: 1px solid var(--border); margin: 2rem 0;">
+    <p style="color: var(--text-muted); font-size: 0.9rem;">Melt developer documentation. See also <a href="README.md">docs/README.md</a>, <a href="01_GETTING_STARTED.md">Getting Started</a>, <a href="06_DEVELOPMENT_ADDING_SYNTAX.md">Adding syntax</a>.</p>
+      </div>
+    </main>
+  </div>
+  <script>
+    (function() {
+      var nav = document.querySelector('.sidebar nav');
+      if (!nav) return;
+      var links = nav.querySelectorAll('a[href^="#"]');
+      function updateActive() {
+        var top = window.scrollY || document.documentElement.scrollTop;
+        links.forEach(function(a) {
+          var id = a.getAttribute('href').slice(1);
+          var el = id ? document.getElementById(id) : null;
+          a.classList.toggle('active', el && el.offsetTop <= top + 100 && el.offsetTop + el.offsetHeight > top);
+        });
+      }
+      window.addEventListener('scroll', updateActive);
+      window.addEventListener('load', updateActive);
+    })();
+  </script>
+</body>
+</html>
