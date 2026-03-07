@@ -105,13 +105,25 @@ std::unique_ptr<Stmt> Parser::classStatement() {
     std::string name = advance().value;
     if (!match(TokenType::LBrace))
         parseError("Expected '{' after class name");
+    std::vector<std::pair<std::string, std::unique_ptr<Expr>>> staticFields;
     std::vector<MethodDecl> methods;
     while (!check(TokenType::RBrace) && peek().type != TokenType::Eof) {
-        methods.push_back(methodDecl());
+        if (match(TokenType::Static)) {
+            if (peek().type != TokenType::Identifier)
+                parseError("Expected static variable name");
+            std::string varName = advance().value;
+            if (!match(TokenType::Assign))
+                parseError("Expected '=' after static variable name");
+            staticFields.push_back({std::move(varName), expression()});
+            if (!match(TokenType::Semicolon))
+                parseError("Expected ';' after static initializer");
+        } else {
+            methods.push_back(methodDecl());
+        }
     }
     if (!match(TokenType::RBrace))
         parseError("Expected '}'");
-    auto s = std::make_unique<ClassDeclStmt>(name, std::move(methods));
+    auto s = std::make_unique<ClassDeclStmt>(name, std::move(staticFields), std::move(methods));
     s->line = line;
     return s;
 }

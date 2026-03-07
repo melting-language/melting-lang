@@ -13,15 +13,11 @@
 #include <vector>
 
 struct MeltObject;  // forward
+struct MeltClass;   // forward
 
 struct MeltMethod {
     std::vector<std::string> params;
     std::unique_ptr<BlockStmt> body;
-};
-
-struct MeltClass {
-    std::string name;
-    std::unordered_map<std::string, MeltMethod> methods;
 };
 
 struct BoundMethod {
@@ -66,6 +62,12 @@ struct MeltVec {
 struct MeltObject {
     std::shared_ptr<MeltClass> klass;
     std::unordered_map<std::string, Value> fields;
+};
+
+struct MeltClass {
+    std::string name;
+    std::unordered_map<std::string, Value> classFields;  // class-level (static) variables
+    std::unordered_map<std::string, MeltMethod> methods;
 };
 
 class Interpreter {
@@ -224,4 +226,6 @@ private:
     void printValue(const Value& v);
     Value getField(std::shared_ptr<MeltObject> obj, const std::string& name);
     void setField(MeltObject& obj, const std::string& name, Value v);
+    Value getClassField(std::shared_ptr<MeltClass> klass, const std::string& name);
+    void setClassField(MeltClass& klass, const std::string& name, Value v);
 };

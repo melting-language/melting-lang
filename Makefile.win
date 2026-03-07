@@ -1,21 +1,29 @@
 # Windows build (MinGW/g++) - same sources as Unix "make ci", no MySQL/SQLite/GUI deps.
 # Run from MSYS2 MINGW64 or similar: make -f Makefile.win
+# config.h is generated from config_win.h into build/ so the compiler finds it.
 
 CXX = g++
-CXXFLAGS = -std=c++17 -Wall -I src -I src/core -I src/http -I src/mysql -I src/sqlite -I src/gui
-# Dynamic link (exe + DLLs packaged together in release zip)
+BUILD_DIR = build
+# Include build dir so #include "config.h" finds build/config.h
+CXXFLAGS = -std=c++17 -Wall -I $(BUILD_DIR) -I src -I src/core -I src/http -I src/mysql -I src/sqlite -I src/gui
 LDFLAGS = -lws2_32
 SRC = src/main.cpp src/core/lexer.cpp src/core/parser.cpp src/core/interpreter.cpp src/core/module_loader.cpp src/http/http_server.cpp src/mysql/mysql_builtin.cpp src/sqlite/sqlite_builtin.cpp
 BINDIR = bin
 TARGET = $(BINDIR)/melt.exe
+CONFIG_H = $(BUILD_DIR)/config.h
 
 all: $(TARGET)
 
-$(TARGET): $(SRC)
+# Generate config.h for Windows (no CMake). Kept in sync with config.h.in / CMake version.
+$(CONFIG_H): config_win.h
+	@mkdir -p $(BUILD_DIR)
+	cp config_win.h $(CONFIG_H)
+
+$(TARGET): $(CONFIG_H) $(SRC)
 	@mkdir -p $(BINDIR)
 	$(CXX) $(CXXFLAGS) -o $(TARGET) $(SRC) $(LDFLAGS)
 
 clean:
-	rm -f $(TARGET)
+	rm -f $(TARGET) $(CONFIG_H)
 
 .PHONY: all clean

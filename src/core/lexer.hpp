@@ -10,7 +10,7 @@ enum class TokenType {
     Assign, Eq, Ne, Lt, Le, Gt, Ge, And, Or, Not, Colon, Arrow,
     Print, Let, If, Else, For, Foreach, In, While, Return, Try, Catch, Throw,
     Import,
-    Class, Method, This, Fn,
+    Class, Method, This, Fn, Static,
     Dot, Comma,
     LBracket, RBracket,
     LBrace, RBrace, Semicolon,

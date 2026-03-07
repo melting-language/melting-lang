@@ -107,8 +107,10 @@ struct MethodDecl {
 
 struct ClassDeclStmt : Stmt {
     std::string name;
+    std::vector<std::pair<std::string, std::unique_ptr<Expr>>> staticFields;  // class-level (global) variables
     std::vector<MethodDecl> methods;
-    ClassDeclStmt(std::string n, std::vector<MethodDecl> m) : name(std::move(n)), methods(std::move(m)) {}
+    ClassDeclStmt(std::string n, std::vector<std::pair<std::string, std::unique_ptr<Expr>>> sf, std::vector<MethodDecl> m)
+        : name(std::move(n)), staticFields(std::move(sf)), methods(std::move(m)) {}
 };
 
 struct SetPropertyStmt : Stmt {

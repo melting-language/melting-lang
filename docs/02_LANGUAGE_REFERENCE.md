@@ -184,8 +184,25 @@ class ClassName {
 ```
 
 - **`method name(params) { body }`** — defines a method. Parameters are comma-separated names.
+- **`static name = expr;`** — class-level (global to the class) variable; shared by all instances. Optional; any number of static fields can appear before or after methods.
 - **`init`** is the constructor: it is run when you call `ClassName(args)`.
 - **`this`** refers to the current object inside a method.
+
+Example with a static counter:
+
+```melt
+class Counter {
+    static count = 0;
+    method init() {
+        Counter.count = Counter.count + 1;
+    }
+    method total() { return Counter.count; }
+}
+let a = Counter();
+let b = Counter();
+print a.total();
+print Counter.count;
+```
 
 ### Creating objects
 
@@ -200,6 +217,7 @@ let obj = ClassName(arg1, arg2);
 - **Get:** `obj.fieldName`
 - **Set:** `obj.fieldName = value;`
 - **Get from current object:** `this.fieldName`
+- **Class (static) variables:** Declare inside a class with `static name = expr;`. They are shared by all instances. Read or write via `ClassName.fieldName` or inside methods via `ClassName.fieldName` and `this` still sees them as the class field (instance fields shadow class fields of the same name).
 
 ### Method calls
 
@@ -259,7 +277,7 @@ Used in `if` and `while`:
 
 ## Reserved words and identifiers
 
-- **Keywords:** `let`, `if`, `else`, `while`, `print`, `class`, `method`, `this`, `import`, `return`, `try`, `catch`, `throw`. **Literals:** `true`, `false`.
+- **Keywords:** `let`, `if`, `else`, `while`, `print`, `class`, `method`, `static`, `this`, `import`, `return`, `try`, `catch`, `throw`. **Literals:** `true`, `false`.
 - **Identifier:** `method` is a keyword; do not use it as a variable name (e.g. use `reqMethod` for “request method”).
 - Other names (variables, classes, methods, properties) use letters, digits, and underscore.
 

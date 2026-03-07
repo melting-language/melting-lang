@@ -82,6 +82,7 @@ Token Lexer::identifier() {
     if (value == "true") return Token(TokenType::True, value, start);
     if (value == "false") return Token(TokenType::False, value, start);
     if (value == "fn") return Token(TokenType::Fn, value, start);
+    if (value == "static") return Token(TokenType::Static, value, start);
 
     return Token(TokenType::Identifier, value, start);
 }

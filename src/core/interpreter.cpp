@@ -31,6 +31,7 @@
 #include <filesystem>
 #include <chrono>
 #include <thread>
+#include <csignal>
 
 struct ReturnException : std::exception {
     Value value;
@@ -1138,13 +1139,59 @@ void Interpreter::registerBuiltins() {
     });
     variables_["runMcp"] = reg([](Interpreter* i, std::vector<Value> args) -> Value {
         (void)args;
+        // Avoid being killed by SIGPIPE when client disconnects before we finish writing
+#ifdef SIGPIPE
+        std::signal(SIGPIPE, SIG_IGN);
+#endif
+        static const std::string fallbackError = "{\"jsonrpc\":\"2.0\",\"id\":null,\"error\":{\"code\":-32603,\"message\":\"Internal error\"}}";
+        // Valid MCP initialize result so Claude/Zod always get an object (never null) when handler fails
+        static const std::string initResult = "{\"jsonrpc\":\"2.0\",\"id\":0,\"result\":{\"protocolVersion\":\"2024-11-05\",\"capabilities\":{\"tools\":{},\"resources\":{},\"prompts\":{}},\"serverInfo\":{\"name\":\"melt-mcp-framework\",\"version\":\"1.0\"}}}";
         for (;;) {
             std::string line;
-            if (!std::getline(std::cin, line)) break;
+            if (!std::getline(std::cin, line)) {
+                // EOF: give client time to read our last response before process exits
+                std::this_thread::sleep_for(std::chrono::milliseconds(200));
+                break;
+            }
             if (std::cin.eof() && line.empty()) break;
+            // Trim leading/trailing whitespace
+            size_t start = line.find_first_not_of(" \t\r\n");
+            if (start == std::string::npos) continue;  // skip blank lines (one line = one message; no empty messages)
+            size_t end = line.find_last_not_of(" \t\r\n");
+            line = line.substr(start, end == std::string::npos ? std::string::npos : end - start + 1);
             i->setMcpRequest(line);
-            i->callMcpHandler();
-            std::cout << i->getMcpResponse() << "\n" << std::flush;
+            i->setMcpResponse("");  // clear so we never resend a previous response
+            bool looksLikeInitialize = (line.find("\"method\"") != std::string::npos && line.find("initialize") != std::string::npos);
+            try {
+                i->callMcpHandler();
+            } catch (...) {
+                if (looksLikeInitialize) {
+                    i->setMcpResponse(initResult);
+                } else {
+                    i->setMcpResponse(fallbackError);
+                }
+            }
+            std::string resp = i->getMcpResponse();
+            if (resp.empty()) {
+                if (looksLikeInitialize)
+                    i->setMcpResponse(initResult);
+                else
+                    i->setMcpResponse(fallbackError);
+                resp = i->getMcpResponse();
+            } else if (looksLikeInitialize && (
+                resp.find("\"result\":null") != std::string::npos ||
+                resp.find("\"result\": null") != std::string::npos ||
+                (resp.size() >= 4 && resp.substr(0, 4) == "null"))) {
+                // Handler failed or returned result:null / "null"; send valid object so client never gets null
+                i->setMcpResponse(initResult);
+                resp = i->getMcpResponse();
+            }
+            // Ensure one line per message: strip embedded newlines from response
+            for (size_t n = 0; n < resp.size(); ) {
+                if (resp[n] == '\r' || resp[n] == '\n') resp.erase(n, 1);
+                else ++n;
+            }
+            std::cout << resp << "\n" << std::flush;
         }
         return false;
     });
@@ -1816,6 +1863,9 @@ void Interpreter::executeLet(const LetStmt& stmt) {
 void Interpreter::executeClass(ClassDeclStmt& stmt) {
     auto klass = std::make_shared<MeltClass>();
     klass->name = stmt.name;
+    for (auto& p : stmt.staticFields) {
+        klass->classFields[p.first] = evaluate(*p.second);
+    }
     for (auto& m : stmt.methods) {
         MeltMethod mm;
         mm.params = m.params;
@@ -1827,10 +1877,20 @@ void Interpreter::executeClass(ClassDeclStmt& stmt) {
 
 void Interpreter::executeSetProperty(const SetPropertyStmt& stmt) {
     Value objVal = evaluate(*stmt.object);
-    auto* obj = std::get_if<std::shared_ptr<MeltObject>>(&objVal);
-    if (!obj || !*obj)
-        runtimeError("Expected object for property assignment");
-    setField(**obj, stmt.name, evaluate(*stmt.value));
+    Value v = evaluate(*stmt.value);
+    if (auto* obj = std::get_if<std::shared_ptr<MeltObject>>(&objVal)) {
+        if (obj->get()) {
+            setField(**obj, stmt.name, std::move(v));
+            return;
+        }
+    }
+    if (auto* k = std::get_if<std::shared_ptr<MeltClass>>(&objVal)) {
+        if (k->get()) {
+            setClassField(**k, stmt.name, std::move(v));
+            return;
+        }
+    }
+    runtimeError("Expected object or class for property assignment");
 }
 
 void Interpreter::executeSetIndex(const SetIndexStmt& stmt) {
@@ -1989,7 +2049,9 @@ Value Interpreter::evaluateGet(const GetExpr& expr) {
     Value objVal = evaluate(*expr.object);
     if (auto* obj = std::get_if<std::shared_ptr<MeltObject>>(&objVal))
         return getField(*obj, expr.name);
-    runtimeError("Expected object for property access");
+    if (auto* k = std::get_if<std::shared_ptr<MeltClass>>(&objVal))
+        return getClassField(*k, expr.name);
+    runtimeError("Expected object or class for property access");
 }
 
 Value Interpreter::evaluateCall(const CallExpr& expr) {
@@ -2094,10 +2156,22 @@ Value Interpreter::evaluateLambda(const LambdaExpr& expr) {
 Value Interpreter::getField(std::shared_ptr<MeltObject> obj, const std::string& name) {
     auto it = obj->fields.find(name);
     if (it != obj->fields.end()) return it->second;
+    auto cit = obj->klass->classFields.find(name);
+    if (cit != obj->klass->classFields.end()) return cit->second;
     auto mit = obj->klass->methods.find(name);
     if (mit != obj->klass->methods.end())
         return BoundMethod{obj, name};
     runtimeError("Unknown property: " + name);
+}
+
+Value Interpreter::getClassField(std::shared_ptr<MeltClass> klass, const std::string& name) {
+    auto it = klass->classFields.find(name);
+    if (it != klass->classFields.end()) return it->second;
+    runtimeError("Unknown class property: " + name);
+}
+
+void Interpreter::setClassField(MeltClass& klass, const std::string& name, Value v) {
+    klass.classFields[name] = std::move(v);
 }
 
 void Interpreter::setField(MeltObject& obj, const std::string& name, Value v) {

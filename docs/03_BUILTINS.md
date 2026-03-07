@@ -220,7 +220,7 @@ For stdio-based servers (e.g. [MCP](https://modelcontextprotocol.io)): read one 
 | `setMcpResponse(str)` | Sets the MCP response string to send back (handler must call this with e.g. `jsonEncode(result)`). |
 | `getMcpResponse()` | Returns the current MCP response string. |
 | `setMcpHandler("ClassName")` | Sets the MCP handler to the class named `ClassName`. The class must define `method handle()`. |
-| `runMcp()` | Blocks in a loop: reads a line from stdin, sets request, calls the MCP handler’s `handle()`, writes the response line to stdout. Exits when stdin is closed. |
+| `runMcp()` | Blocks in a loop: reads a line from stdin, sets request, calls the MCP handler’s `handle()`, writes the response line to stdout. Exits when stdin is closed. **One line = one message:** each request must be a single line (no embedded newlines in the JSON). Leading/trailing whitespace on input is trimmed; blank lines are skipped. The response is sent as a single line (embedded newlines in the handler’s response are stripped). |
 
 Example: `examples/mcp_server.melt`. Run with e.g. `echo '{"jsonrpc":"2.0","id":1,"method":"ping"}' | ./bin/melt examples/mcp_server.melt`.
 
