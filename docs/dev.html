@@ -88,6 +88,16 @@
     .flow-box.entry { border-color: var(--green); }
     .flow-arrow { color: var(--text-muted); padding: 0 0.35rem; }
     .flow-label { color: var(--text-muted); font-size: 0.85rem; margin-left: 0.5rem; }
+    .mem-diagram { margin: 1.5rem 0; background: var(--bg-card); border: 1px solid var(--border); border-radius: 8px; padding: 1.25rem; overflow-x: auto; }
+    .mem-diagram svg { display: block; margin: 0 auto; font-family: system-ui, sans-serif; }
+    .mem-diagram .box { fill: var(--bg-card); stroke: var(--border); stroke-width: 1.5; }
+    .mem-diagram .box.owner { stroke: var(--green); }
+    .mem-diagram .box.heap { stroke: var(--accent); }
+    .mem-diagram .text { fill: var(--text); font-size: 12px; }
+    .mem-diagram .text.small { font-size: 10px; fill: var(--text-muted); }
+    .mem-diagram .arrow { stroke: var(--text-muted); stroke-width: 1.5; fill: none; }
+    .mem-diagram .arrow.own { stroke: var(--green); }
+    .mem-diagram .arrow.ref { stroke: var(--accent); }
     .main {
       flex: 1;
       max-width: 780px;
@@ -169,6 +179,8 @@
         <a href="#prerequisites">1. Prerequisites</a>
         <a href="#get-source">2. Get the source</a>
         <a href="#project-structure">3. Project structure</a>
+        <a href="#memory-management">Memory management</a>
+        <a href="#threading">Multi-thread management</a>
         <a href="#compile">4. How to compile</a>
         <a href="#process">5. How Melt works</a>
         <a href="#development-process">6. Development process</a>
@@ -335,6 +347,98 @@ cd melting-lang</code></pre>
     </ol>
 
     <p>So the data flow is: <strong>source string → tokens → AST → execution</strong>. The entry point is <code>main.cpp</code>; the “last” step is either normal exit after <code>interpret()</code> returns or process exit after a long-running server stops.</p>
+
+    <h2 id="memory-management">Memory management</h2>
+    <p>Melt does not use a garbage collector. Memory is managed with C++ RAII and smart pointers.</p>
+
+    <div class="mem-diagram">
+      <svg width="580" height="280" viewBox="0 0 580 280" xmlns="http://www.w3.org/2000/svg">
+        <!-- Parser / main -->
+        <rect class="box owner" x="20" y="20" width="120" height="50" rx="4"/>
+        <text class="text" x="80" y="45" text-anchor="middle">Parser / main</text>
+        <text class="text small" x="80" y="60" text-anchor="middle">owns</text>
+        <!-- AST -->
+        <rect class="box owner" x="200" y="20" width="140" height="50" rx="4"/>
+        <text class="text" x="270" y="42" text-anchor="middle">AST</text>
+        <text class="text small" x="270" y="58" text-anchor="middle">unique_ptr&lt;Stmt&gt;</text>
+        <!-- Arrow: owns -->
+        <path class="arrow own" d="M 140 45 L 198 45" marker-end="url(#arrow-green)"/>
+        <text class="text small" x="169" y="40" text-anchor="middle">owns</text>
+        <!-- Interpreter -->
+        <rect class="box" x="20" y="120" width="120" height="50" rx="4"/>
+        <text class="text" x="80" y="142" text-anchor="middle">Interpreter</text>
+        <text class="text small" x="80" y="158" text-anchor="middle">variables_</text>
+        <!-- Variables map -->
+        <rect class="box" x="200" y="120" width="120" height="50" rx="4"/>
+        <text class="text" x="260" y="142" text-anchor="middle">Variables</text>
+        <text class="text small" x="260" y="158" text-anchor="middle">map&lt;string, Value&gt;</text>
+        <!-- Arrow: has -->
+        <path class="arrow" d="M 140 145 L 198 145" marker-end="url(#arrow-gray)"/>
+        <text class="text small" x="169" y="140" text-anchor="middle">has</text>
+        <!-- Value (variant) -->
+        <rect class="box" x="380" y="120" width="100" height="50" rx="4"/>
+        <text class="text" x="430" y="142" text-anchor="middle">Value</text>
+        <text class="text small" x="430" y="158" text-anchor="middle">variant + shared_ptr</text>
+        <path class="arrow ref" d="M 320 145 L 378 145" marker-end="url(#arrow-accent)"/>
+        <text class="text small" x="349" y="140" text-anchor="middle">ref</text>
+        <!-- Heap -->
+        <rect class="box heap" x="380" y="220" width="160" height="44" rx="4"/>
+        <text class="text" x="460" y="238" text-anchor="middle">Heap objects</text>
+        <text class="text small" x="460" y="252" text-anchor="middle">MeltObject, MeltArray, MeltClass, MeltVec</text>
+        <path class="arrow ref" d="M 430 170 L 430 218" marker-end="url(#arrow-accent)"/>
+        <text class="text small" x="445" y="198" text-anchor="middle">shared_ptr</text>
+        <!-- Lifecycle note -->
+        <text class="text small" x="80" y="210" text-anchor="middle">AST freed when</text>
+        <text class="text small" x="80" y="224" text-anchor="middle">interpret() ends</text>
+        <text class="text small" x="460" y="272" text-anchor="middle">refcount 0 → freed</text>
+        <!-- Arrow markers -->
+        <defs>
+          <marker id="arrow-green" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0 0 L8 4 L0 8" fill="#34d399"/></marker>
+          <marker id="arrow-gray" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0 0 L8 4 L0 8" fill="#94a3b8"/></marker>
+          <marker id="arrow-accent" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0 0 L8 4 L0 8" fill="#38bdf8"/></marker>
+        </defs>
+      </svg>
+    </div>
+
+    <p><strong>Summary:</strong> The AST is owned exclusively by the parser/caller (<code>unique_ptr</code>) and lives until the end of <code>interpret()</code>. Runtime values are either value types (number, string, bool) or <code>shared_ptr</code> to heap data; when the last reference goes away, the object is destroyed. There is no separate GC pass.</p>
+
+    <h2 id="threading">Multi-thread management</h2>
+    <p>The <strong>interpreter is single-threaded</strong>: one <code>Interpreter</code> instance, one <code>variables_</code> map, no mutex. Script execution and built-ins (including <code>sleep</code>) run on the same thread. This keeps the core simple and avoids data races.</p>
+
+    <p><strong>Where threads (or processes) appear:</strong></p>
+    <ul>
+      <li><strong>HTTP server (Windows)</strong> — Two threads: the main thread accepts connections and pushes (client, request) into a queue; a single <strong>worker thread</strong> pops from the queue and runs <code>handleOneRequest(interp, ...)</code>. Only the worker touches the interpreter, so requests are handled <strong>one at a time</strong>. The queue is protected by <code>std::mutex</code> and <code>std::condition_variable</code> (producer–consumer).</li>
+      <li><strong>HTTP server (Unix)</strong> — No threads. The main process <code>fork()</code>s a child per request; the child runs <code>handleOneRequest</code> then exits. The interpreter is not shared across processes.</li>
+      <li><strong>MCP (stdio)</strong> — Single-threaded: one loop reads a line from stdin, calls the handler, writes the response. No worker threads.</li>
+    </ul>
+
+    <p><strong>Implications:</strong></p>
+    <ul>
+      <li>Melt scripts never run in parallel on the same interpreter. No need for locks in script code or in the interpreter core.</li>
+      <li>On Windows, <code>listen(port)</code> uses one worker; concurrent requests wait in the queue and are processed sequentially.</li>
+      <li>Built-ins like <code>sleep(seconds)</code> block the current thread (the one running the script or the HTTP worker).</li>
+    </ul>
+
+    <div class="mem-diagram">
+      <svg width="520" height="160" viewBox="0 0 520 160" xmlns="http://www.w3.org/2000/svg">
+        <rect class="box" x="20" y="20" width="140" height="52" rx="4"/>
+        <text class="text" x="90" y="42" text-anchor="middle">Script / CLI</text>
+        <text class="text small" x="90" y="58" text-anchor="middle">one thread, one Interpreter</text>
+        <rect class="box" x="200" y="20" width="140" height="52" rx="4"/>
+        <text class="text" x="270" y="42" text-anchor="middle">listen() Windows</text>
+        <text class="text small" x="270" y="58" text-anchor="middle">acceptor + 1 worker thread</text>
+        <rect class="box" x="380" y="20" width="120" height="52" rx="4"/>
+        <text class="text" x="440" y="42" text-anchor="middle">listen() Unix</text>
+        <text class="text small" x="440" y="58" text-anchor="middle">fork() per request</text>
+        <line class="arrow" x1="90" y1="72" x2="90" y2="95" stroke="#94a3b8" stroke-width="1.5"/>
+        <line class="arrow" x1="270" y1="72" x2="270" y2="95" stroke="#94a3b8" stroke-width="1.5"/>
+        <line class="arrow" x1="440" y1="72" x2="440" y2="95" stroke="#94a3b8" stroke-width="1.5"/>
+        <rect class="box heap" x="180" y="100" width="160" height="48" rx="4"/>
+        <text class="text" x="260" y="122" text-anchor="middle">Interpreter used by</text>
+        <text class="text small" x="260" y="138" text-anchor="middle">at most one thread at a time</text>
+        <path d="M 90 95 L 90 100 M 270 95 L 260 100 M 440 95 L 340 100" stroke="#94a3b8" stroke-width="1" fill="none"/>
+      </svg>
+    </div>
 
     <h2 id="compile">4. How to compile</h2>
 

@@ -23,6 +23,8 @@ void registerSqliteBuiltins(Interpreter* interp) {
         std::string path = str(args[0]);
         if (path.empty()) return false;
 
+        std::string resolved = i->getResolvedPath(path);
+
         if (i->getSqliteStmt()) {
             sqlite3_finalize((sqlite3_stmt*)i->getSqliteStmt());
             i->setSqliteStmt(nullptr);
@@ -33,7 +35,7 @@ void registerSqliteBuiltins(Interpreter* interp) {
         }
 
         sqlite3* db = nullptr;
-        if (sqlite3_open(path.c_str(), &db) != SQLITE_OK) {
+        if (sqlite3_open(resolved.c_str(), &db) != SQLITE_OK) {
             if (db) sqlite3_close(db);
             return false;
         }
@@ -140,6 +142,16 @@ void registerSqliteBuiltins(Interpreter* interp) {
         return false;
     });
 #else
-    (void)interp;
+    auto sqliteUnavailable = [](Interpreter* i, std::vector<Value>) -> Value {
+        (void)i;
+        i->runtimeError("SQLite is not available: this build was compiled without SQLite. Rebuild with SQLite (e.g. cmake with sqlite3, or use a build that has USE_SQLITE).");
+        return std::monostate{};
+    };
+    interp->registerBuiltin("sqliteOpen", sqliteUnavailable);
+    interp->registerBuiltin("sqliteExec", sqliteUnavailable);
+    interp->registerBuiltin("sqliteQuery", sqliteUnavailable);
+    interp->registerBuiltin("sqliteFetchRow", sqliteUnavailable);
+    interp->registerBuiltin("sqliteFetchAll", sqliteUnavailable);
+    interp->registerBuiltin("sqliteClose", sqliteUnavailable);
 #endif
 }
