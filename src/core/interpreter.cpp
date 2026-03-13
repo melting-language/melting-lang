@@ -697,6 +697,7 @@ bool Interpreter::saveImagePpm(const std::string& path) const {
 
 void Interpreter::interpret(const std::vector<std::unique_ptr<Stmt>>& statements,
                             const std::string& currentFilePath) {
+    recursionDepth_ = 0;
     currentFile_ = currentFilePath;
     currentDir_ = dirname(currentFilePath);
     loadGlobalConfig();
@@ -1772,6 +1773,30 @@ void Interpreter::runtimeError(const std::string& msg) {
 
 void Interpreter::execute(Stmt& stmt) {
     currentLine_ = stmt.line;
+    if (recursionLimit_ > 0 && recursionDepth_ >= recursionLimit_)
+        runtimeError("Recursion limit exceeded (max " + std::to_string(recursionLimit_) + ")");
+    ++recursionDepth_;
+    struct Guard { Interpreter* i; ~Guard() { --i->recursionDepth_; } } g{this};
+    if (traceEnabled_) {
+        const char* kind = "stmt";
+        if (dynamic_cast<PrintStmt*>(&stmt)) kind = "print";
+        else if (dynamic_cast<ExprStmt*>(&stmt)) kind = "expr";
+        else if (dynamic_cast<ImportStmt*>(&stmt)) kind = "import";
+        else if (dynamic_cast<LetStmt*>(&stmt)) kind = "let";
+        else if (dynamic_cast<AssignStmt*>(&stmt)) kind = "assign";
+        else if (dynamic_cast<ClassDeclStmt*>(&stmt)) kind = "class";
+        else if (dynamic_cast<SetPropertyStmt*>(&stmt)) kind = "setprop";
+        else if (dynamic_cast<SetIndexStmt*>(&stmt)) kind = "setindex";
+        else if (dynamic_cast<BlockStmt*>(&stmt)) kind = "block";
+        else if (dynamic_cast<IfStmt*>(&stmt)) kind = "if";
+        else if (dynamic_cast<ForStmt*>(&stmt)) kind = "for";
+        else if (dynamic_cast<ForeachStmt*>(&stmt)) kind = "foreach";
+        else if (dynamic_cast<WhileStmt*>(&stmt)) kind = "while";
+        else if (dynamic_cast<ReturnStmt*>(&stmt)) kind = "return";
+        else if (dynamic_cast<TryCatchStmt*>(&stmt)) kind = "try";
+        else if (dynamic_cast<ThrowStmt*>(&stmt)) kind = "throw";
+        std::cerr << "TRACE line " << stmt.line << " " << kind << "\n";
+    }
     if (auto p = dynamic_cast<PrintStmt*>(&stmt)) { executePrint(*p); return; }
     if (auto p = dynamic_cast<ExprStmt*>(&stmt)) { executeExprStmt(*p); return; }
     if (auto p = dynamic_cast<ImportStmt*>(&stmt)) { executeImport(*p); return; }

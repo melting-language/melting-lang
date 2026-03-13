@@ -50,10 +50,11 @@ All examples are under **`examples/`**. Run them from the **project root** with:
 
 | File | Description |
 |------|-------------|
+| **http_server_minimal.melt** | Built-in HTTP server (no separate process): minimal handler, `setHandler`, `listen(8765)`. Run then open http://localhost:8765/ |
 | **server.melt** | Simple HTTP server: routes `/` and `/api/hello`, uses `getRequestPath`, `getRequestMethod`, `setResponseBody`, `setResponseStatus`, `setHandler`, `listen(8080)`. |
 | **upload_server.melt** | HTTP file upload server (`multipart/form-data`) using `uploadSave`, `uploadFileName`. |
 
-Run then open http://localhost:8080/
+Run then open the URL shown (e.g. http://localhost:8080/ or http://localhost:8765/ for the minimal server).
 
 ---
 

@@ -48,6 +48,7 @@ message(STATUS "SDL2 Libs: ${SDL2_LIBRARIES}")
 message(STATUS "SDL2 Includes: ${SDL2_INCLUDE_DIRS}")
 message(STATUS "MySQL found: ${MYSQL_FOUND}")
 message(STATUS "libzip found: ${LIBZIP_FOUND}")
+message(STATUS "Built-in HTTP server: enabled (no separate process; listen/setHandler in interpreter)")
 
 set(SOURCES
     src/main.cpp

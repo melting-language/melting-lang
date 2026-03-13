@@ -222,6 +222,7 @@
       <nav>
         <a href="#overview">Overview</a>
         <a href="#getting-started">Getting Started</a>
+        <a href="#cli-options">Command-line options</a>
         <a href="#how-melt-works">How Melt works</a>
         <a href="#language-reference">Language Reference</a>
         <div class="sub">
@@ -281,6 +282,7 @@
       <section id="overview">
         <h2>Overview</h2>
         <p>Melt supports variables, arithmetic, strings, arrays, control flow (<code>if</code>/<code>else</code>, <code>for</code>, <code>while</code>), <code>try</code>/<code>catch</code>/<code>throw</code>, classes and methods, <code>return</code>, and <code>import</code>. It includes built-ins for file I/O, JSON, HTTP server, optional MySQL, encoding (Base64, XOR), and Blade-like HTML templates. The <code>examples/web_project_mvc/</code> project shows a full MVC-style web app; <code>examples/official_website_using_melt/</code> is the full official Melt website with Home, Documentation, About, Resource, Support, and a dynamic Blog.</p>
+        <p><strong>Melt language features for web:</strong> Built-in HTTP server (no separate process); one handler with <code>handle()</code>, <code>setHandler("App")</code>, <code>listen(port)</code>. Request/response API: <code>getRequestPath()</code>, <code>getRequestMethod()</code>, <code>getRequestBody()</code>, <code>getRequestHeader(name)</code>; <code>setResponseBody()</code>, <code>setResponseStatus()</code>, <code>setResponseContentType()</code>, <code>setResponseHeader(name, value)</code>; streaming via <code>streamChunk(str)</code> and <code>sleep(seconds)</code>. Static file serving: <code>servePublic(path)</code> serves from <code>public/</code> under <code>/js/</code>, <code>/css/</code>, <code>/images/</code> with correct Content-Type; call it first in your router—if it returns true, the request is handled.</p>
         <div class="quick-ref">
           <h3>Quick reference</h3>
           <ul>
@@ -311,6 +313,32 @@ cmake --install build --prefix $(HOME)/.local   # user-only</code></pre>
 print "Hello, ";
 print name;</code></pre>
         <p>Paths: <code>import</code> paths are relative to the file containing the import. <code>readFile(path)</code> and similar resolve relative paths from the entry script’s directory. Run from the project root when using examples or the MVC app.</p>
+      </section>
+
+      <section id="cli-options">
+        <h2>Command-line options</h2>
+        <p>The <code>melt</code> executable accepts the following options. Options must appear before the script path.</p>
+        <pre><code>melt [options] &lt;file.melt&gt;    Run a Melt script.
+melt -e &lt;code&gt;                 Run inline code.</code></pre>
+        <table>
+          <thead>
+            <tr><th>Option</th><th>Description</th></tr>
+          </thead>
+          <tbody>
+            <tr><td><code>-h</code>, <code>--help</code></td><td>Show usage and exit.</td></tr>
+            <tr><td><code>-v</code>, <code>--version</code></td><td>Show version and exit.</td></tr>
+            <tr><td><code>-c</code>, <code>--check</code></td><td>Parse only (syntax check); do not run the script.</td></tr>
+            <tr><td><code>-e &lt;code&gt;</code></td><td>Execute <code>&lt;code&gt;</code> as a Melt script (no file).</td></tr>
+            <tr><td><code>--trace</code></td><td>Trace each executed statement to stderr (line number and statement kind).</td></tr>
+            <tr><td><code>--recursion-limit &lt;N&gt;</code></td><td>Maximum call/execution depth; <code>0</code> = no limit (default).</td></tr>
+          </tbody>
+        </table>
+        <h3>Examples</h3>
+        <pre><code>./build/melt script.melt
+./build/melt -c script.melt          # syntax check only
+./build/melt -e 'print 1 + 2;'      # inline code
+./build/melt --trace script.melt     # debug execution
+./build/melt --recursion-limit 100 script.melt</code></pre>
       </section>
 
       <section id="how-melt-works">

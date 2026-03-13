@@ -2,6 +2,24 @@
 
 Melt includes a built-in HTTP server and an example MVC-style web project.
 
+## Built-in HTTP server (no separate process)
+
+- **No need for a separate web server or reverse proxy** for development.
+- One handler class with **`method handle()`**, then **`setHandler("App")`** and **`listen(port)`**.
+- Request data (path, method, body, headers) is available via built-ins; you build the response with the same language.
+
+The **interpreter is built with the HTTP server included**: the `melt` binary compiles in `src/http/http_server.cpp`, and built-ins such as `listen(port)` and `setHandler("ClassName")` are part of the interpreter. The HTTP server runs **inside the same process** as your Melt script. You do **not** need to run a separate web server (e.g. nginx, Apache) or a separate backend process (e.g. Node, Python). One command starts everything:
+
+```bash
+./build/melt examples/server.melt
+```
+
+That single process parses your script, sets up the handler, and listens for HTTP connections. Each request is handled by calling your handler’s `handle()` method; the response is sent and the connection is closed. No extra daemon or reverse proxy is required for development or simple deployment.
+
+Minimal example: **`examples/http_server_minimal.melt`** — run `./build/melt examples/http_server_minimal.melt` then open http://localhost:8765/
+
+---
+
 ## HTTP server (any script)
 
 ### Minimal server
@@ -32,9 +50,32 @@ listen(8080);
 
 Run: `./build/melt examples/server.melt` then open http://localhost:8080/
 
-### Serving static files
+### Request handling
 
-Call **`servePublic(path)`** first in your handler (or in your router). If the path is under `/js/`, `/css/`, or `/images/`, the file under the **`public/`** directory (relative to the script) is served and the function returns true. Otherwise it returns false and you can handle the route as usual.
+**Request/response API**
+
+- **Request:** `getRequestPath()`, `getRequestMethod()`, `getRequestBody()`, `getRequestHeader(name)`.
+- **Response:** `setResponseBody()`, `setResponseStatus()`, `setResponseContentType()`, `setResponseHeader(name, value)`.
+- **Streaming:** `streamChunk(str)` with chunked transfer for SSE or progressive output; `sleep(seconds)` for throttling.
+
+So you get a full request/response model and streaming without extra libraries.
+
+For each connection the server:
+
+1. **Reads the request** — Accepts a client socket, then reads until the full request is received (headers plus body). Body length is determined by the `Content-Length` header when present.
+2. **Parses it** — Extracts HTTP method, path (URI path only), body, and the raw header block from the request.
+3. **Sets request data** — Calls `interp->setRequestData(path, method, body, headers)` so the interpreter has the current request for this handle.
+4. **Calls the handler** — Invokes the handler class’s `handle()` method. Inside `handle()`, your script uses:
+   - **`getRequestPath()`** — Request path (e.g. `/`, `/api/users`; may include query string, e.g. `/items?id=1`).
+   - **`getRequestMethod()`** — HTTP method (e.g. `GET`, `POST`).
+   - **`getRequestBody()`** — Raw request body (e.g. POST form data or JSON).
+   - **`getRequestHeader(name)`** — Value of a request header (case-insensitive); empty string if missing.
+
+Response is built in the interpreter via `setResponseBody`, `setResponseStatus`, `setResponseContentType`, `setResponseHeader`, and optionally `streamChunk`; the server then sends the response and closes the connection. See [Built-ins](03_BUILTINS.md) for the full list.
+
+### Static file serving
+
+**`servePublic(path)`** serves from a **`public/`** directory under `/js/`, `/css/`, `/images/` with correct `Content-Type`. Call it first in your router; if it returns true, the request is handled and you don’t need to route it yourself. Otherwise it returns false and you can handle the route as usual.
 
 ---
 

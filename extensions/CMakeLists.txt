@@ -1,3 +1,9 @@
+# Optional deps for extensions (ssh needs libssh)
+find_package(PkgConfig QUIET)
+if(PkgConfig_FOUND)
+    pkg_check_modules(LIBSSH libssh)
+endif()
+
 # Get a list of all subdirectories in the current folder
 file(GLOB children RELATIVE ${CMAKE_CURRENT_SOURCE_DIR} *)
 
@@ -31,6 +37,17 @@ foreach(child ${children})
                     target_include_directories(${lib_name} PRIVATE ${LIBZIP_INCLUDE_DIRS})
                     target_link_directories(${lib_name} PRIVATE ${LIBZIP_LIBRARY_DIRS})
                     target_link_libraries(${lib_name} PRIVATE ${LIBZIP_LIBRARIES})
+                endif()
+
+                # ssh extension links libssh (optional; stub if not found)
+                if(child STREQUAL "ssh" AND LIBSSH_FOUND)
+                    target_compile_definitions(${lib_name} PRIVATE USE_LIBSSH=1)
+                    target_include_directories(${lib_name} PRIVATE ${LIBSSH_INCLUDE_DIRS})
+                    target_link_directories(${lib_name} PRIVATE ${LIBSSH_LIBRARY_DIRS})
+                    target_link_libraries(${lib_name} PRIVATE ${LIBSSH_LIBRARIES})
+                    message(STATUS "SSH extension: building with libssh")
+                elseif(child STREQUAL "ssh")
+                    message(STATUS "SSH extension: building stub (libssh not found)")
                 endif()
 
                 # Extensions resolve Interpreter::registerBuiltin etc. from the main binary at load time.

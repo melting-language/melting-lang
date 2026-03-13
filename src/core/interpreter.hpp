@@ -114,6 +114,12 @@ public:
     // Set directory containing the melt binary (for melt.ini and extension loading).
     void setBinDir(const std::string& binDir);
 
+    // Advanced options
+    void setTrace(bool on) { traceEnabled_ = on; }
+    bool getTrace() const { return traceEnabled_; }
+    void setRecursionLimit(int limit) { recursionLimit_ = limit; }
+    int getRecursionLimit() const { return recursionLimit_; }
+
     using NativeFn = std::function<Value(Interpreter*, std::vector<Value>)>;
     // Register a native built-in (for extensions like MySQL)
     void registerBuiltin(const std::string& name, NativeFn fn);
@@ -138,6 +144,9 @@ private:
     std::set<std::string> importedPaths_;  // avoid circular/repeated imports
     std::string binDir_;  // directory containing the melt binary (for melt.ini, extensions)
     std::vector<std::string> modulePath_;  // additional directories to search for imports (from melt.config or addModulePath)
+    bool traceEnabled_ = false;   // if true, print each executed statement line to stderr
+    int recursionLimit_ = 0;       // max call/execute depth; 0 = no limit
+    int recursionDepth_ = 0;      // current depth (internal)
     std::unordered_map<std::string, std::string> config_;  // key-value from melt.config / melt.ini (last value per key)
 
     std::vector<NativeFn> nativeFunctions_;
