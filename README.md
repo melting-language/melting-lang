@@ -88,11 +88,11 @@ Melt is a minimal, interpreted object-oriented programming language implemented 
 
 ### Built-in Capabilities
 
-**Web Server**
-- Native HTTP server implementation
+**Web Server (Melt language features)**
+- **Built-in HTTP server (no separate process)** — No separate web server or reverse proxy for development. One handler class with `method handle()`, then `setHandler("App")` and `listen(port)`.
+- **Request/response API** — Request: `getRequestPath()`, `getRequestMethod()`, `getRequestBody()`, `getRequestHeader(name)`. Response: `setResponseBody()`, `setResponseStatus()`, `setResponseContentType()`, `setResponseHeader(name, value)`. Streaming: `streamChunk(str)` with chunked transfer for SSE or progressive output; `sleep(seconds)` for throttling. Full request/response model and streaming without extra libraries.
 - Request routing and handler configuration
-- Static file serving
-- Response body, status, and header control
+- **Static file serving:** `servePublic(path)` serves from a `public/` directory under `/js/`, `/css/`, `/images/` with correct Content-Type. Call it first in your router; if it returns true, the request is handled and you don’t need to route it yourself.
 
 **Database Support**
 - MySQL client integration (optional compile-time feature)
@@ -482,7 +482,11 @@ let product = Product("Widget", 29.99);
 
 ### HTTP Server
 
-Melt includes a built-in HTTP server for web application development without external dependencies.
+The interpreter is **built with a built-in HTTP server** (see `src/http/http_server.cpp` in the build).
+
+- **No need for a separate web server or reverse proxy** for development.
+- One handler class with **`method handle()`**, then **`setHandler("App")`** and **`listen(port)`**.
+- Request data (path, method, body, headers) is available via built-ins; you build the response with the same language.
 
 **Basic Server Implementation:**
 
@@ -505,6 +509,8 @@ listen(8080);
 
 ### Request Handling
 
+**Request/response API:** Request: `getRequestPath()`, `getRequestMethod()`, `getRequestBody()`, `getRequestHeader(name)`. Response: `setResponseBody()`, `setResponseStatus()`, `setResponseContentType()`, `setResponseHeader(name, value)`. Streaming: `streamChunk(str)` with chunked transfer for SSE or progressive output; `sleep(seconds)` for throttling. You get a full request/response model and streaming without extra libraries.
+
 **Available Request Functions:**
 
 | Function | Return Type | Description |
@@ -524,11 +530,11 @@ listen(8080);
 | `setResponseContentType(type)` | String | Sets Content-Type header |
 | `setResponseHeader(name, value)` | String, String | Sets custom response header |
 
-**Static File Serving:**
+**Static file serving:** `servePublic(path)` serves from a `public/` directory under `/js/`, `/css/`, `/images/` with correct Content-Type. Call it first in your router; if it returns true, the request is handled and you don’t need to route it yourself.
 
 ```melt
-// Serve files from public directory
-servePublic("public");
+// In your handler or router: call first
+if (servePublic(path)) return;   // request handled
 
 // Files in public/css, public/js, public/images are accessible
 // Example: http://localhost:8080/css/style.css
