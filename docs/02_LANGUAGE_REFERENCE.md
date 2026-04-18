@@ -59,10 +59,18 @@ Melt is dynamically typed. Values can be:
 
 - `+` (addition; also string concatenation)
 - `-` (subtraction)
+- `-expr` (prefix numeric negation)
 - `*` (multiplication)
 - `/` (division)
 
 Numeric and string `+`: if one operand is a string, the other is converted to string and concatenated.
+
+```melt
+print -1;
+print -(1 + 2);
+let x = 5;
+print -x;
+```
 
 ### Comparison
 

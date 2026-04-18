@@ -2252,6 +2252,12 @@ Value Interpreter::evaluateUnary(const UnaryExpr& expr) {
     if (expr.op == "!") {
         return !isTruthy(evaluate(*expr.operand));
     }
+    if (expr.op == "-") {
+        Value value = evaluate(*expr.operand);
+        if (!std::holds_alternative<double>(value))
+            runtimeError("Unary '-' expects number");
+        return -std::get<double>(value);
+    }
     return false;
 }
 

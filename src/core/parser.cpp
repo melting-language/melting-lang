@@ -426,15 +426,22 @@ std::unique_ptr<Expr> Parser::term() {
 }
 
 std::unique_ptr<Expr> Parser::factor() {
-    auto expr = primary();
+    auto expr = unaryMinus();
     for (;;) {
         if (match(TokenType::Star))
-            expr = std::make_unique<BinaryExpr>("*", std::move(expr), primary());
+            expr = std::make_unique<BinaryExpr>("*", std::move(expr), unaryMinus());
         else if (match(TokenType::Slash))
-            expr = std::make_unique<BinaryExpr>("/", std::move(expr), primary());
+            expr = std::make_unique<BinaryExpr>("/", std::move(expr), unaryMinus());
         else break;
     }
     return expr;
+}
+
+std::unique_ptr<Expr> Parser::unaryMinus() {
+    if (match(TokenType::Minus)) {
+        return std::make_unique<UnaryExpr>("-", unaryMinus());
+    }
+    return primary();
 }
 
 std::unique_ptr<Expr> Parser::primary() {
