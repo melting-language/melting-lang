@@ -48,6 +48,7 @@ private:
     std::unique_ptr<Expr> comparison();
     std::unique_ptr<Expr> term();
     std::unique_ptr<Expr> factor();
+    std::unique_ptr<Expr> unaryMinus();
     std::unique_ptr<Expr> primary();
     std::unique_ptr<Expr> postfix(std::unique_ptr<Expr> expr);
     std::vector<std::unique_ptr<Expr>> exprList();
