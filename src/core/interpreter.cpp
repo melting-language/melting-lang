@@ -45,6 +45,14 @@ struct ThrowException : std::exception {
     const char* what() const noexcept override { return "throw"; }
 };
 
+struct BreakException : std::exception {
+    const char* what() const noexcept override { return "break"; }
+};
+
+struct ContinueException : std::exception {
+    const char* what() const noexcept override { return "continue"; }
+};
+
 struct MeltClosureImpl {
     std::unordered_map<std::string, Value> env;
     MeltClosureImpl() = default;
@@ -818,6 +826,10 @@ void Interpreter::callHandler() {
         for (const auto& s : m.body->statements) execute(*s);
     } catch (const ReturnException&) {
         /* handler returned; normal exit */
+    } catch (const BreakException&) {
+        throw;
+    } catch (const ContinueException&) {
+        throw;
     }
     this_ = prevThis;
 }
@@ -845,6 +857,10 @@ void Interpreter::callMcpHandler() {
         for (const auto& s : m.body->statements) execute(*s);
     } catch (const ReturnException&) {
         /* handler returned; normal exit */
+    } catch (const BreakException&) {
+        throw;
+    } catch (const ContinueException&) {
+        throw;
     }
     this_ = prevThis;
 }
@@ -1792,6 +1808,8 @@ void Interpreter::execute(Stmt& stmt) {
         else if (dynamic_cast<ForStmt*>(&stmt)) kind = "for";
         else if (dynamic_cast<ForeachStmt*>(&stmt)) kind = "foreach";
         else if (dynamic_cast<WhileStmt*>(&stmt)) kind = "while";
+        else if (dynamic_cast<BreakStmt*>(&stmt)) kind = "break";
+        else if (dynamic_cast<ContinueStmt*>(&stmt)) kind = "continue";
         else if (dynamic_cast<ReturnStmt*>(&stmt)) kind = "return";
         else if (dynamic_cast<TryCatchStmt*>(&stmt)) kind = "try";
         else if (dynamic_cast<ThrowStmt*>(&stmt)) kind = "throw";
@@ -1810,6 +1828,8 @@ void Interpreter::execute(Stmt& stmt) {
     if (auto p = dynamic_cast<ForStmt*>(&stmt)) { executeFor(*p); return; }
     if (auto p = dynamic_cast<ForeachStmt*>(&stmt)) { executeForeach(*p); return; }
     if (auto p = dynamic_cast<WhileStmt*>(&stmt)) { executeWhile(*p); return; }
+    if (auto p = dynamic_cast<BreakStmt*>(&stmt)) { executeBreak(*p); return; }
+    if (auto p = dynamic_cast<ContinueStmt*>(&stmt)) { executeContinue(*p); return; }
     if (auto p = dynamic_cast<ReturnStmt*>(&stmt)) { executeReturn(*p); return; }
     if (auto p = dynamic_cast<TryCatchStmt*>(&stmt)) { executeTryCatch(*p); return; }
     if (auto p = dynamic_cast<ThrowStmt*>(&stmt)) { executeThrow(*p); return; }
@@ -1961,7 +1981,15 @@ void Interpreter::executeFor(const ForStmt& stmt) {
     for (;;) {
         if (stmt.condition && !isTruthy(evaluate(*stmt.condition)))
             break;
-        execute(*stmt.body);
+        try {
+            execute(*stmt.body);
+        } catch (const ContinueException&) {
+            if (stmt.update)
+                evaluate(*stmt.update);
+            continue;
+        } catch (const BreakException&) {
+            break;
+        }
         if (stmt.update)
             evaluate(*stmt.update);
     }
@@ -1979,7 +2007,13 @@ void Interpreter::executeForeach(const ForeachStmt& stmt) {
             } else {
                 variables_[stmt.firstVar] = (*arr)->data[i];
             }
-            execute(*stmt.body);
+            try {
+                execute(*stmt.body);
+            } catch (const ContinueException&) {
+                continue;
+            } catch (const BreakException&) {
+                break;
+            }
         }
         return;
     }
@@ -1993,7 +2027,13 @@ void Interpreter::executeForeach(const ForeachStmt& stmt) {
             } else {
                 variables_[stmt.firstVar] = kv.second;
             }
-            execute(*stmt.body);
+            try {
+                execute(*stmt.body);
+            } catch (const ContinueException&) {
+                continue;
+            } catch (const BreakException&) {
+                break;
+            }
         }
         return;
     }
@@ -2002,8 +2042,23 @@ void Interpreter::executeForeach(const ForeachStmt& stmt) {
 }
 
 void Interpreter::executeWhile(const WhileStmt& stmt) {
-    while (isTruthy(evaluate(*stmt.condition)))
-        execute(*stmt.body);
+    while (isTruthy(evaluate(*stmt.condition))) {
+        try {
+            execute(*stmt.body);
+        } catch (const ContinueException&) {
+            continue;
+        } catch (const BreakException&) {
+            break;
+        }
+    }
+}
+
+void Interpreter::executeBreak(const BreakStmt&) {
+    throw BreakException();
+}
+
+void Interpreter::executeContinue(const ContinueStmt&) {
+    throw ContinueException();
 }
 
 void Interpreter::executeReturn(const ReturnStmt& stmt) {
@@ -2021,6 +2076,10 @@ void Interpreter::executeTryCatch(const TryCatchStmt& stmt) {
             execute(*s);
     } catch (const ReturnException&) {
         throw;  // rethrow so method return propagates
+    } catch (const BreakException&) {
+        throw;  // rethrow so loop control propagates
+    } catch (const ContinueException&) {
+        throw;  // rethrow so loop control propagates
     } catch (const std::exception& e) {
         variables_[stmt.catchVar] = std::string(e.what());
         for (const auto& s : stmt.catchBody->statements)

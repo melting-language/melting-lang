@@ -212,6 +212,8 @@ private:
     void executeFor(const ForStmt& stmt);
     void executeForeach(const ForeachStmt& stmt);
     void executeWhile(const WhileStmt& stmt);
+    void executeBreak(const BreakStmt& stmt);
+    void executeContinue(const ContinueStmt& stmt);
     void executeReturn(const ReturnStmt& stmt);
     void executeTryCatch(const TryCatchStmt& stmt);
     void executeThrow(const ThrowStmt& stmt);

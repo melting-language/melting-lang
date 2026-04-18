@@ -49,6 +49,8 @@ std::unique_ptr<Stmt> Parser::statement() {
     if (match(TokenType::For)) return forStatement();
     if (match(TokenType::Foreach)) return foreachStatement();
     if (match(TokenType::While)) return whileStatement();
+    if (match(TokenType::Break)) return breakStatement();
+    if (match(TokenType::Continue)) return continueStatement();
     if (match(TokenType::Return)) return returnStatement();
     if (match(TokenType::Try)) return tryStatement();
     if (match(TokenType::Throw)) return throwStatement();
@@ -145,10 +147,13 @@ MethodDecl Parser::methodDecl() {
         parseError("Expected ')'");
     if (!match(TokenType::LBrace))
         parseError("Expected '{' for method body");
+    int savedLoopDepth = loopDepth_;
+    loopDepth_ = 0;
     auto body = std::make_unique<BlockStmt>();
     while (!check(TokenType::RBrace) && peek().type != TokenType::Eof) {
         body->statements.push_back(statement());
     }
+    loopDepth_ = savedLoopDepth;
     if (!match(TokenType::RBrace))
         parseError("Expected '}'");
     MethodDecl m;
@@ -204,7 +209,9 @@ std::unique_ptr<Stmt> Parser::forStatement() {
         if (!match(TokenType::RParen))
             parseError("Expected ')' after for update");
     }
+    ++loopDepth_;
     auto body = statement();
+    --loopDepth_;
     auto s = std::make_unique<ForStmt>(std::move(init), std::move(condition), std::move(update), std::move(body));
     s->line = line;
     return s;
@@ -230,7 +237,9 @@ std::unique_ptr<Stmt> Parser::foreachStatement() {
     auto iterable = expression();
     if (!match(TokenType::RParen))
         parseError("Expected ')' after foreach iterable");
+    ++loopDepth_;
     auto body = statement();
+    --loopDepth_;
     auto s = std::make_unique<ForeachStmt>(std::move(firstVar), std::move(secondVar), hasSecondVar, std::move(iterable), std::move(body));
     s->line = line;
     return s;
@@ -243,8 +252,32 @@ std::unique_ptr<Stmt> Parser::whileStatement() {
     auto condition = expression();
     if (!match(TokenType::RParen))
         parseError("Expected ')' after condition");
+    ++loopDepth_;
     auto body = statement();
+    --loopDepth_;
     auto s = std::make_unique<WhileStmt>(std::move(condition), std::move(body));
+    s->line = line;
+    return s;
+}
+
+std::unique_ptr<Stmt> Parser::breakStatement() {
+    int line = peek().line;
+    if (loopDepth_ == 0)
+        parseError("'break' used outside of loop");
+    if (!match(TokenType::Semicolon))
+        parseError("Expected ';' after 'break'");
+    auto s = std::make_unique<BreakStmt>();
+    s->line = line;
+    return s;
+}
+
+std::unique_ptr<Stmt> Parser::continueStatement() {
+    int line = peek().line;
+    if (loopDepth_ == 0)
+        parseError("'continue' used outside of loop");
+    if (!match(TokenType::Semicolon))
+        parseError("Expected ';' after 'continue'");
+    auto s = std::make_unique<ContinueStmt>();
     s->line = line;
     return s;
 }
@@ -510,7 +543,10 @@ std::unique_ptr<Expr> Parser::primary() {
             parseError("Expected ')'");
         if (!match(TokenType::LBrace))
             parseError("Expected '{' for lambda body");
+        int savedLoopDepth = loopDepth_;
+        loopDepth_ = 0;
         auto blockStmt = blockStatement();
+        loopDepth_ = savedLoopDepth;
         BlockStmt* bs = dynamic_cast<BlockStmt*>(blockStmt.get());
         if (!bs)
             parseError("Expected block");

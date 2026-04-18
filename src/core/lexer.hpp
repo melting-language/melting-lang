@@ -8,7 +8,7 @@ enum class TokenType {
     Plus, Minus, Star, Slash,
     LParen, RParen,
     Assign, Eq, Ne, Lt, Le, Gt, Ge, And, Or, Not, Colon, Arrow,
-    Print, Let, If, Else, For, Foreach, In, While, Return, Try, Catch, Throw,
+    Print, Let, If, Else, For, Foreach, In, While, Break, Continue, Return, Try, Catch, Throw,
     Import,
     Class, Method, This, Fn, Static,
     Dot, Comma,

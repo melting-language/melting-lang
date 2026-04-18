@@ -152,6 +152,25 @@ foreach (key, value in objectExpr) {
 
 `foreach` works with arrays and objects. It throws a runtime error for other types.
 
+### break / continue
+
+```melt
+while (true) {
+    break;
+}
+```
+
+```melt
+for (let i = 0; i < 5; i = i + 1) {
+    if (i == 2) continue;
+    print i;
+}
+```
+
+- **`break;`** — exits the nearest enclosing `while`, `for`, or `foreach`.
+- **`continue;`** — skips the rest of the current iteration of the nearest enclosing loop and proceeds to the next iteration.
+- Both are valid only inside loops. Using them outside a loop is a parser error.
+
 ### try / catch / throw
 
 ```melt
