@@ -195,6 +195,10 @@ struct WhileStmt : Stmt {
         : condition(std::move(c)), body(std::move(b)) {}
 };
 
+struct BreakStmt : Stmt {};
+
+struct ContinueStmt : Stmt {};
+
 struct ReturnStmt : Stmt {
     std::unique_ptr<Expr> value;  // optional: null means "return;" with no value
     explicit ReturnStmt(std::unique_ptr<Expr> v = nullptr) : value(std::move(v)) {}

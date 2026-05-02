@@ -15,6 +15,7 @@ private:
     std::vector<Token> tokens_;
     size_t pos_;
     std::string sourceName_;
+    int loopDepth_ = 0;
 
     const Token& peek();
     const Token& advance();
@@ -32,6 +33,8 @@ private:
     std::unique_ptr<Stmt> forStatement();
     std::unique_ptr<Stmt> foreachStatement();
     std::unique_ptr<Stmt> whileStatement();
+    std::unique_ptr<Stmt> breakStatement();
+    std::unique_ptr<Stmt> continueStatement();
     std::unique_ptr<Stmt> returnStatement();
     std::unique_ptr<Stmt> tryStatement();
     std::unique_ptr<Stmt> throwStatement();
