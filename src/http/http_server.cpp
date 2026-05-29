@@ -1,10 +1,12 @@
 #include "http_server.hpp"
 #include "interpreter.hpp"
+#include <charconv>
 #include <cstdio>
 #include <cstring>
 #include <sstream>
 #include <stdexcept>
 #include <cctype>
+#include <string_view>
 #include <thread>
 #include <mutex>
 #include <condition_variable>
@@ -29,48 +31,97 @@
 #define closesocket close
 #endif
 
+static ssize_t sendAll(SOCKET sock, const char* data, size_t len) {
+    size_t total = 0;
+    while (total < len) {
+        int sent = send(sock, data + total, (int)(len - total), 0);
+        if (sent <= 0) return -1;
+        total += (size_t)sent;
+    }
+    return (ssize_t)total;
+}
+
+static std::string getStatusText(int status) {
+    switch (status) {
+        case 200: return "OK";
+        case 302: return "Found";
+        case 404: return "Not Found";
+        case 500: return "Internal Server Error";
+        default: return "Error";
+    }
+}
+
+static size_t findHeaderValue(const char* data, size_t len, const char* name) {
+    size_t nameLen = std::strlen(name);
+    size_t pos = 0;
+    while (pos < len) {
+        size_t lineEnd = pos;
+        while (lineEnd < len && data[lineEnd] != '\n') ++lineEnd;
+        size_t start = pos;
+        while (start < lineEnd && (data[start] == ' ' || data[start] == '\t')) ++start;
+        if (start + nameLen < lineEnd) {
+            bool match = true;
+            for (size_t i = 0; i < nameLen; ++i) {
+                char a = data[start + i];
+                char b = name[i];
+                if (a >= 'A' && a <= 'Z') a += 'a' - 'A';
+                if (a != b) {
+                    match = false;
+                    break;
+                }
+            }
+            if (match && start + nameLen < lineEnd && data[start + nameLen] == ':') {
+                size_t valuePos = start + nameLen + 1;
+                while (valuePos < lineEnd && (data[valuePos] == ' ' || data[valuePos] == '\t')) ++valuePos;
+                return valuePos;
+            }
+        }
+        pos = (lineEnd < len) ? lineEnd + 1 : lineEnd;
+    }
+    return std::string::npos;
+}
+
+static bool parseContentLength(const char* data, size_t len, size_t& contentLen) {
+    size_t pos = findHeaderValue(data, len, "content-length");
+    if (pos == std::string::npos) return false;
+    const char* start = data + pos;
+    const char* end = data + len;
+    while (start < end && (*start == ' ' || *start == '\t')) ++start;
+    if (start >= end || *start < '0' || *start > '9') return false;
+    const char* numEnd = start;
+    while (numEnd < end && *numEnd >= '0' && *numEnd <= '9') ++numEnd;
+    auto result = std::from_chars(start, numEnd, contentLen);
+    return result.ec == std::errc() && numEnd > start;
+}
+
 static void parseRequest(const std::string& raw, std::string& method, std::string& path, std::string& body, std::string& headersOut) {
     method = "GET";
     path = "/";
-    body = "";
-    headersOut = "";
+    body.clear();
+    headersOut.clear();
     size_t line1 = raw.find("\r\n");
     if (line1 == std::string::npos) line1 = raw.find('\n');
     if (line1 == std::string::npos) return;
-    std::string first = raw.substr(0, line1);
+    std::string_view first(raw.data(), line1);
     size_t s1 = first.find(' ');
-    if (s1 == std::string::npos) return;
+    if (s1 == std::string_view::npos) return;
     size_t s2 = first.find(' ', s1 + 1);
-    if (s2 != std::string::npos) {
-        method = first.substr(0, s1);
-        path = first.substr(s1 + 1, s2 - (s1 + 1));
+    if (s2 != std::string_view::npos) {
+        method.assign(first.data(), s1);
+        path.assign(first.data() + s1 + 1, s2 - (s1 + 1));
     }
     size_t headEnd = raw.find("\r\n\r\n");
     bool useCrlf = (headEnd != std::string::npos);
     if (headEnd == std::string::npos) headEnd = raw.find("\n\n");
-    if (headEnd != std::string::npos) {
-        size_t headersStart = line1 + (raw.substr(line1, 2) == "\r\n" ? 2u : 1u);
-        headersOut = raw.substr(headersStart, headEnd - headersStart);
-        size_t bodyStart = headEnd + (useCrlf ? 4u : 2u);
-        if (bodyStart <= raw.size()) {
-            body = raw.substr(bodyStart);
-            std::string headers = raw.substr(0, headEnd);
-            std::string headersLower = headers;
-            for (char& ch : headersLower) ch = (char)std::tolower((unsigned char)ch);
-            size_t cl = headersLower.find("content-length:");
-            if (cl != std::string::npos) {
-                cl = headers.find_first_not_of(" \t", cl + 15);
-                if (cl != std::string::npos) {
-                    size_t end = cl;
-                    while (end < headers.size() && (unsigned char)headers[end] >= '0' && (unsigned char)headers[end] <= '9') ++end;
-                    if (end > cl) {
-                        int len = std::stoi(headers.substr(cl, end - cl));
-                        if (len >= 0 && (size_t)len <= body.size()) body = body.substr(0, (size_t)len);
-                    }
-                }
-            }
-        }
-    }
+    if (headEnd == std::string::npos) return;
+    size_t headersStart = line1 + (useCrlf ? 2u : 1u);
+    headersOut.assign(raw, headersStart, headEnd - headersStart);
+    size_t bodyStart = headEnd + (useCrlf ? 4u : 2u);
+    if (bodyStart > raw.size()) return;
+    body.assign(raw, bodyStart, raw.size() - bodyStart);
+    size_t contentLen = 0;
+    if (parseContentLength(raw.data(), headEnd, contentLen) && contentLen <= body.size())
+        body.resize(contentLen);
 }
 
 static void handleOneRequest(Interpreter* interp, SOCKET clientFd, const std::string& request) {
@@ -81,25 +132,32 @@ static void handleOneRequest(Interpreter* interp, SOCKET clientFd, const std::st
     interp->setResponseChunkSender([clientFd, &firstChunk](Interpreter* i, const std::string& chunk) {
         if (firstChunk) {
             int status = i->getResponseStatus();
-            std::string statusText = (status == 200) ? "OK" : (status == 404) ? "Not Found" : (status == 302) ? "Found" : "Error";
-            std::ostringstream head;
-            head << "HTTP/1.1 " << status << " " << statusText << "\r\n"
-                << "Transfer-Encoding: chunked\r\n"
-                << "Connection: close\r\n"
-                << "Content-Type: " << i->getResponseContentType() << "\r\n";
-            for (const auto& h : i->getResponseHeaders())
-                head << h.first << ": " << h.second << "\r\n";
-            head << "\r\n";
-            std::string hdr = head.str();
-            send(clientFd, hdr.data(), (int)hdr.size(), 0);
+            std::string statusText = getStatusText(status);
+            std::string hdr;
+            hdr.reserve(256);
+            hdr += "HTTP/1.1 ";
+            hdr += std::to_string(status);
+            hdr += " ";
+            hdr += statusText;
+            hdr += "\r\nTransfer-Encoding: chunked\r\nConnection: close\r\nContent-Type: ";
+            hdr += i->getResponseContentType();
+            hdr += "\r\n";
+            for (const auto& h : i->getResponseHeaders()) {
+                hdr += h.first;
+                hdr += ": ";
+                hdr += h.second;
+                hdr += "\r\n";
+            }
+            hdr += "\r\n";
+            sendAll(clientFd, hdr.data(), hdr.size());
             firstChunk = false;
         }
         if (chunk.empty()) return;
         char lenBuf[32];
         int n = snprintf(lenBuf, sizeof(lenBuf), "%zx\r\n", chunk.size());
-        send(clientFd, lenBuf, n, 0);
-        send(clientFd, chunk.data(), (int)chunk.size(), 0);
-        send(clientFd, "\r\n", 2, 0);
+        sendAll(clientFd, lenBuf, (size_t)n);
+        sendAll(clientFd, chunk.data(), chunk.size());
+        sendAll(clientFd, "\r\n", 2);
     });
     try {
         interp->callHandler();
@@ -123,35 +181,46 @@ static void handleOneRequest(Interpreter* interp, SOCKET clientFd, const std::st
             << "<h1>Server error</h1><p class=\"err\">" << msg << "</p>"
             << "<p><a href=\"/\">Back to app</a></p></body></html>";
         std::string bodyStr = html.str();
-        std::ostringstream out;
-        out << "HTTP/1.1 500 Internal Server Error\r\n"
-            << "Content-Length: " << bodyStr.size() << "\r\n"
-            << "Connection: close\r\n"
-            << "Content-Type: text/html; charset=utf-8\r\n\r\n" << bodyStr;
-        std::string response = out.str();
-        send(clientFd, response.data(), (int)response.size(), 0);
+        std::string response;
+        response.reserve(128 + bodyStr.size());
+        response += "HTTP/1.1 500 Internal Server Error\r\n";
+        response += "Content-Length: ";
+        response += std::to_string(bodyStr.size());
+        response += "\r\nConnection: close\r\nContent-Type: text/html; charset=utf-8\r\n\r\n";
+        response += bodyStr;
+        sendAll(clientFd, response.data(), response.size());
         closesocket(clientFd);
         return;
     }
     interp->setResponseChunkSender(nullptr);
     if (interp->responseStreamingUsed()) {
         const char term[] = "0\r\n\r\n";
-        send(clientFd, term, (int)sizeof(term) - 1, 0);
+        sendAll(clientFd, term, (size_t)sizeof(term) - 1);
     } else {
         std::string respBody = interp->getResponseBody();
         int status = interp->getResponseStatus();
         std::string contentType = interp->getResponseContentType();
-        std::string statusText = (status == 200) ? "OK" : (status == 404) ? "Not Found" : (status == 302) ? "Found" : "Error";
-        std::ostringstream out;
-        out << "HTTP/1.1 " << status << " " << statusText << "\r\n"
-            << "Content-Length: " << respBody.size() << "\r\n"
-            << "Connection: close\r\n"
-            << "Content-Type: " << contentType << "\r\n";
-        for (const auto& h : interp->getResponseHeaders())
-            out << h.first << ": " << h.second << "\r\n";
-        out << "\r\n" << respBody;
-        std::string response = out.str();
-        send(clientFd, response.data(), (int)response.size(), 0);
+        std::string statusText = getStatusText(status);
+        std::string response;
+        response.reserve(128 + respBody.size());
+        response += "HTTP/1.1 ";
+        response += std::to_string(status);
+        response += " ";
+        response += statusText;
+        response += "\r\nContent-Length: ";
+        response += std::to_string(respBody.size());
+        response += "\r\nConnection: close\r\nContent-Type: ";
+        response += contentType;
+        response += "\r\n";
+        for (const auto& h : interp->getResponseHeaders()) {
+            response += h.first;
+            response += ": ";
+            response += h.second;
+            response += "\r\n";
+        }
+        response += "\r\n";
+        response += respBody;
+        sendAll(clientFd, response.data(), response.size());
     }
     closesocket(clientFd);
 }
@@ -232,17 +301,9 @@ void runHttpServer(Interpreter* interp, int port) {
                 if (headEnd != std::string::npos) {
                     haveHeaders = true;
                     bodyStart = headEnd + sepLen;
-                    std::string head = request.substr(0, headEnd);
-                    std::string headLower = head;
-                    for (char& ch : headLower) ch = (char)std::tolower((unsigned char)ch);
-                    size_t cl = headLower.find("content-length:");
-                    if (cl != std::string::npos) {
-                        cl = headLower.find_first_not_of(" \t", cl + 15);
-                        if (cl != std::string::npos) {
-                            size_t end = cl;
-                            while (end < headLower.size() && headLower[end] >= '0' && headLower[end] <= '9') ++end;
-                            if (end > cl) expectedBodyLen = (size_t)std::stoul(headLower.substr(cl, end - cl));
-                        }
+                    size_t contentLen = 0;
+                    if (parseContentLength(request.data(), headEnd, contentLen)) {
+                        expectedBodyLen = contentLen;
                     }
                     if (request.size() >= bodyStart + expectedBodyLen) break;
                 }
