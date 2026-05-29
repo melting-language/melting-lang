@@ -18,6 +18,7 @@
 #endif
 
 #include "module_loader.hpp"
+#include <algorithm>
 #include <iostream>
 #include <fstream>
 #include <sstream>
@@ -1756,6 +1757,312 @@ void Interpreter::registerBuiltins() {
         if (args.size() >= 2 && std::holds_alternative<std::shared_ptr<MeltObject>>(args[1]))
             obj = std::get<std::shared_ptr<MeltObject>>(args[1]);
         return i->renderViewTemplate(path, obj);
+    });
+    // ---- String built-ins ----
+    variables_["stringLength"] = reg([](Interpreter* i, std::vector<Value> args) -> Value {
+        (void)i;
+        if (args.empty() || !std::holds_alternative<std::string>(args[0])) return 0.0;
+        return (double)std::get<std::string>(args[0]).size();
+    });
+    variables_["toUpperCase"] = reg([](Interpreter* i, std::vector<Value> args) -> Value {
+        (void)i;
+        if (args.empty() || !std::holds_alternative<std::string>(args[0])) return std::string("");
+        std::string s = std::get<std::string>(args[0]);
+        for (char& c : s) c = (char)std::toupper((unsigned char)c);
+        return s;
+    });
+    variables_["toLowerCase"] = reg([](Interpreter* i, std::vector<Value> args) -> Value {
+        (void)i;
+        if (args.empty() || !std::holds_alternative<std::string>(args[0])) return std::string("");
+        std::string s = std::get<std::string>(args[0]);
+        for (char& c : s) c = (char)std::tolower((unsigned char)c);
+        return s;
+    });
+    variables_["stringContains"] = reg([](Interpreter* i, std::vector<Value> args) -> Value {
+        (void)i;
+        if (args.size() < 2 || !std::holds_alternative<std::string>(args[0]) || !std::holds_alternative<std::string>(args[1]))
+            return false;
+        return std::get<std::string>(args[0]).find(std::get<std::string>(args[1])) != std::string::npos;
+    });
+    variables_["stringIndexOf"] = reg([](Interpreter* i, std::vector<Value> args) -> Value {
+        (void)i;
+        if (args.size() < 2 || !std::holds_alternative<std::string>(args[0]) || !std::holds_alternative<std::string>(args[1]))
+            return -1.0;
+        size_t pos = std::get<std::string>(args[0]).find(std::get<std::string>(args[1]));
+        return pos == std::string::npos ? -1.0 : (double)pos;
+    });
+    variables_["stringStartsWith"] = reg([](Interpreter* i, std::vector<Value> args) -> Value {
+        (void)i;
+        if (args.size() < 2 || !std::holds_alternative<std::string>(args[0]) || !std::holds_alternative<std::string>(args[1]))
+            return false;
+        const std::string& s = std::get<std::string>(args[0]);
+        const std::string& prefix = std::get<std::string>(args[1]);
+        return s.size() >= prefix.size() && s.compare(0, prefix.size(), prefix) == 0;
+    });
+    variables_["stringEndsWith"] = reg([](Interpreter* i, std::vector<Value> args) -> Value {
+        (void)i;
+        if (args.size() < 2 || !std::holds_alternative<std::string>(args[0]) || !std::holds_alternative<std::string>(args[1]))
+            return false;
+        const std::string& s = std::get<std::string>(args[0]);
+        const std::string& suffix = std::get<std::string>(args[1]);
+        return s.size() >= suffix.size() && s.compare(s.size() - suffix.size(), suffix.size(), suffix) == 0;
+    });
+    variables_["stringTrim"] = reg([](Interpreter* i, std::vector<Value> args) -> Value {
+        (void)i;
+        if (args.empty() || !std::holds_alternative<std::string>(args[0])) return std::string("");
+        const std::string& s = std::get<std::string>(args[0]);
+        size_t start = s.find_first_not_of(" \t\r\n");
+        if (start == std::string::npos) return std::string("");
+        size_t end = s.find_last_not_of(" \t\r\n");
+        return s.substr(start, end - start + 1);
+    });
+    variables_["stringSubstring"] = reg([](Interpreter* i, std::vector<Value> args) -> Value {
+        (void)i;
+        if (args.empty() || !std::holds_alternative<std::string>(args[0])) return std::string("");
+        const std::string& s = std::get<std::string>(args[0]);
+        size_t start = (args.size() > 1 && std::holds_alternative<double>(args[1]))
+            ? (size_t)std::max(0.0, std::get<double>(args[1])) : 0;
+        if (start >= s.size()) return std::string("");
+        if (args.size() > 2 && std::holds_alternative<double>(args[2])) {
+            size_t len = (size_t)std::max(0.0, std::get<double>(args[2]));
+            return s.substr(start, len);
+        }
+        return s.substr(start);
+    });
+    variables_["urlEncode"] = reg([](Interpreter* i, std::vector<Value> args) -> Value {
+        (void)i;
+        if (args.empty() || !std::holds_alternative<std::string>(args[0])) return std::string("");
+        const std::string& s = std::get<std::string>(args[0]);
+        std::string out;
+        out.reserve(s.size() * 3);
+        for (unsigned char c : s) {
+            if (std::isalnum(c) || c == '-' || c == '_' || c == '.' || c == '~')
+                out += (char)c;
+            else if (c == ' ')
+                out += '+';
+            else {
+                char buf[4];
+                std::snprintf(buf, sizeof(buf), "%%%02X", c);
+                out += buf;
+            }
+        }
+        return out;
+    });
+    variables_["toString"] = reg([](Interpreter* i, std::vector<Value> args) -> Value {
+        (void)i;
+        if (args.empty() || std::holds_alternative<std::monostate>(args[0])) return std::string("null");
+        if (std::holds_alternative<std::string>(args[0])) return args[0];
+        if (std::holds_alternative<double>(args[0])) {
+            double d = std::get<double>(args[0]);
+            if (d == (long long)d) return std::to_string((long long)d);
+            return std::to_string(d);
+        }
+        if (std::holds_alternative<bool>(args[0])) return std::get<bool>(args[0]) ? std::string("true") : std::string("false");
+        if (std::holds_alternative<std::shared_ptr<MeltArray>>(args[0])) return std::string("[array]");
+        if (std::holds_alternative<std::shared_ptr<MeltObject>>(args[0])) return std::string("[object]");
+        return std::string("null");
+    });
+    // ---- Array built-ins ----
+    variables_["arrayPop"] = reg([](Interpreter* i, std::vector<Value> args) -> Value {
+        (void)i;
+        if (args.empty()) return false;
+        auto* arr = std::get_if<std::shared_ptr<MeltArray>>(&args[0]);
+        if (!arr || !*arr || (*arr)->data.empty()) return false;
+        Value v = (*arr)->data.back();
+        (*arr)->data.pop_back();
+        return v;
+    });
+    variables_["arrayShift"] = reg([](Interpreter* i, std::vector<Value> args) -> Value {
+        (void)i;
+        if (args.empty()) return false;
+        auto* arr = std::get_if<std::shared_ptr<MeltArray>>(&args[0]);
+        if (!arr || !*arr || (*arr)->data.empty()) return false;
+        Value v = (*arr)->data.front();
+        (*arr)->data.erase((*arr)->data.begin());
+        return v;
+    });
+    variables_["arrayUnshift"] = reg([](Interpreter* i, std::vector<Value> args) -> Value {
+        (void)i;
+        if (args.size() < 2) return false;
+        auto* arr = std::get_if<std::shared_ptr<MeltArray>>(&args[0]);
+        if (!arr || !*arr) return false;
+        (*arr)->data.insert((*arr)->data.begin(), args[1]);
+        return (double)(*arr)->data.size();
+    });
+    variables_["arrayJoin"] = reg([](Interpreter* i, std::vector<Value> args) -> Value {
+        (void)i;
+        if (args.empty()) return std::string("");
+        auto* arr = std::get_if<std::shared_ptr<MeltArray>>(&args[0]);
+        if (!arr || !*arr) return std::string("");
+        std::string sep = (args.size() > 1 && std::holds_alternative<std::string>(args[1]))
+            ? std::get<std::string>(args[1]) : ",";
+        std::string out;
+        for (size_t j = 0; j < (*arr)->data.size(); ++j) {
+            if (j) out += sep;
+            const Value& v = (*arr)->data[j];
+            if (std::holds_alternative<std::string>(v)) out += std::get<std::string>(v);
+            else if (std::holds_alternative<double>(v)) {
+                double d = std::get<double>(v);
+                if (d == (long long)d) out += std::to_string((long long)d);
+                else out += std::to_string(d);
+            } else if (std::holds_alternative<bool>(v)) out += std::get<bool>(v) ? "true" : "false";
+        }
+        return out;
+    });
+    variables_["arrayContains"] = reg([](Interpreter* i, std::vector<Value> args) -> Value {
+        (void)i;
+        if (args.size() < 2) return false;
+        auto* arr = std::get_if<std::shared_ptr<MeltArray>>(&args[0]);
+        if (!arr || !*arr) return false;
+        const Value& needle = args[1];
+        for (const Value& v : (*arr)->data) {
+            if (std::holds_alternative<double>(v) && std::holds_alternative<double>(needle) &&
+                std::get<double>(v) == std::get<double>(needle)) return true;
+            if (std::holds_alternative<std::string>(v) && std::holds_alternative<std::string>(needle) &&
+                std::get<std::string>(v) == std::get<std::string>(needle)) return true;
+            if (std::holds_alternative<bool>(v) && std::holds_alternative<bool>(needle) &&
+                std::get<bool>(v) == std::get<bool>(needle)) return true;
+        }
+        return false;
+    });
+    variables_["arrayIndexOf"] = reg([](Interpreter* i, std::vector<Value> args) -> Value {
+        (void)i;
+        if (args.size() < 2) return -1.0;
+        auto* arr = std::get_if<std::shared_ptr<MeltArray>>(&args[0]);
+        if (!arr || !*arr) return -1.0;
+        const Value& needle = args[1];
+        for (size_t j = 0; j < (*arr)->data.size(); ++j) {
+            const Value& v = (*arr)->data[j];
+            if (std::holds_alternative<double>(v) && std::holds_alternative<double>(needle) &&
+                std::get<double>(v) == std::get<double>(needle)) return (double)j;
+            if (std::holds_alternative<std::string>(v) && std::holds_alternative<std::string>(needle) &&
+                std::get<std::string>(v) == std::get<std::string>(needle)) return (double)j;
+            if (std::holds_alternative<bool>(v) && std::holds_alternative<bool>(needle) &&
+                std::get<bool>(v) == std::get<bool>(needle)) return (double)j;
+        }
+        return -1.0;
+    });
+    variables_["arraySlice"] = reg([](Interpreter* i, std::vector<Value> args) -> Value {
+        (void)i;
+        if (args.empty()) return std::make_shared<MeltArray>();
+        auto* arr = std::get_if<std::shared_ptr<MeltArray>>(&args[0]);
+        if (!arr || !*arr) return std::make_shared<MeltArray>();
+        size_t sz = (*arr)->data.size();
+        size_t start = 0;
+        if (args.size() > 1 && std::holds_alternative<double>(args[1]))
+            start = (size_t)std::max(0.0, std::get<double>(args[1]));
+        size_t end = sz;
+        if (args.size() > 2 && std::holds_alternative<double>(args[2]))
+            end = (size_t)std::max(0.0, std::get<double>(args[2]));
+        if (start > sz) start = sz;
+        if (end > sz) end = sz;
+        auto result = std::make_shared<MeltArray>();
+        for (size_t j = start; j < end; ++j) result->data.push_back((*arr)->data[j]);
+        return result;
+    });
+    variables_["arrayReverse"] = reg([](Interpreter* i, std::vector<Value> args) -> Value {
+        (void)i;
+        if (args.empty()) return false;
+        auto* arr = std::get_if<std::shared_ptr<MeltArray>>(&args[0]);
+        if (!arr || !*arr) return false;
+        std::reverse((*arr)->data.begin(), (*arr)->data.end());
+        return true;
+    });
+    variables_["arrayRemove"] = reg([](Interpreter* i, std::vector<Value> args) -> Value {
+        (void)i;
+        if (args.size() < 2) return false;
+        auto* arr = std::get_if<std::shared_ptr<MeltArray>>(&args[0]);
+        if (!arr || !*arr) return false;
+        size_t idx = std::holds_alternative<double>(args[1]) ? (size_t)std::get<double>(args[1]) : 0;
+        if (idx >= (*arr)->data.size()) return false;
+        (*arr)->data.erase((*arr)->data.begin() + (ptrdiff_t)idx);
+        return true;
+    });
+    // ---- Math built-ins ----
+    variables_["pow"] = reg([](Interpreter* i, std::vector<Value> args) -> Value {
+        (void)i;
+        if (args.size() < 2 || !std::holds_alternative<double>(args[0]) || !std::holds_alternative<double>(args[1]))
+            return 0.0;
+        return std::pow(std::get<double>(args[0]), std::get<double>(args[1]));
+    });
+    variables_["sqrt"] = reg([](Interpreter* i, std::vector<Value> args) -> Value {
+        (void)i;
+        if (args.empty() || !std::holds_alternative<double>(args[0])) return 0.0;
+        return std::sqrt(std::get<double>(args[0]));
+    });
+    variables_["sin"] = reg([](Interpreter* i, std::vector<Value> args) -> Value {
+        (void)i;
+        if (args.empty() || !std::holds_alternative<double>(args[0])) return 0.0;
+        return std::sin(std::get<double>(args[0]));
+    });
+    variables_["cos"] = reg([](Interpreter* i, std::vector<Value> args) -> Value {
+        (void)i;
+        if (args.empty() || !std::holds_alternative<double>(args[0])) return 0.0;
+        return std::cos(std::get<double>(args[0]));
+    });
+    variables_["tan"] = reg([](Interpreter* i, std::vector<Value> args) -> Value {
+        (void)i;
+        if (args.empty() || !std::holds_alternative<double>(args[0])) return 0.0;
+        return std::tan(std::get<double>(args[0]));
+    });
+    variables_["log"] = reg([](Interpreter* i, std::vector<Value> args) -> Value {
+        (void)i;
+        if (args.empty() || !std::holds_alternative<double>(args[0])) return 0.0;
+        return std::log(std::get<double>(args[0]));
+    });
+    variables_["log2"] = reg([](Interpreter* i, std::vector<Value> args) -> Value {
+        (void)i;
+        if (args.empty() || !std::holds_alternative<double>(args[0])) return 0.0;
+        return std::log2(std::get<double>(args[0]));
+    });
+    variables_["log10"] = reg([](Interpreter* i, std::vector<Value> args) -> Value {
+        (void)i;
+        if (args.empty() || !std::holds_alternative<double>(args[0])) return 0.0;
+        return std::log10(std::get<double>(args[0]));
+    });
+    // ---- Type built-ins ----
+    variables_["typeOf"] = reg([](Interpreter* i, std::vector<Value> args) -> Value {
+        (void)i;
+        if (args.empty() || std::holds_alternative<std::monostate>(args[0])) return std::string("null");
+        if (std::holds_alternative<double>(args[0])) return std::string("number");
+        if (std::holds_alternative<std::string>(args[0])) return std::string("string");
+        if (std::holds_alternative<bool>(args[0])) return std::string("bool");
+        if (std::holds_alternative<std::shared_ptr<MeltArray>>(args[0])) return std::string("array");
+        if (std::holds_alternative<std::shared_ptr<MeltObject>>(args[0])) return std::string("object");
+        if (std::holds_alternative<std::shared_ptr<MeltClass>>(args[0])) return std::string("class");
+        if (std::holds_alternative<NativeFunc>(args[0]) || std::holds_alternative<MeltClosure>(args[0]) || std::holds_alternative<BoundMethod>(args[0]))
+            return std::string("function");
+        return std::string("unknown");
+    });
+    variables_["isNull"] = reg([](Interpreter* i, std::vector<Value> args) -> Value {
+        (void)i;
+        return args.empty() || std::holds_alternative<std::monostate>(args[0]);
+    });
+    variables_["isNumber"] = reg([](Interpreter* i, std::vector<Value> args) -> Value {
+        (void)i;
+        return !args.empty() && std::holds_alternative<double>(args[0]);
+    });
+    variables_["isString"] = reg([](Interpreter* i, std::vector<Value> args) -> Value {
+        (void)i;
+        return !args.empty() && std::holds_alternative<std::string>(args[0]);
+    });
+    variables_["isBool"] = reg([](Interpreter* i, std::vector<Value> args) -> Value {
+        (void)i;
+        return !args.empty() && std::holds_alternative<bool>(args[0]);
+    });
+    variables_["isArray"] = reg([](Interpreter* i, std::vector<Value> args) -> Value {
+        (void)i;
+        return !args.empty() && std::holds_alternative<std::shared_ptr<MeltArray>>(args[0]);
+    });
+    variables_["isObject"] = reg([](Interpreter* i, std::vector<Value> args) -> Value {
+        (void)i;
+        return !args.empty() && std::holds_alternative<std::shared_ptr<MeltObject>>(args[0]);
+    });
+    // ---- Time built-ins ----
+    variables_["timestamp"] = reg([](Interpreter* i, std::vector<Value> args) -> Value {
+        (void)i; (void)args;
+        auto now = std::chrono::system_clock::now().time_since_epoch();
+        return (double)std::chrono::duration_cast<std::chrono::milliseconds>(now).count();
     });
 #if !defined(MELT_EMBEDDED)
     registerMysqlBuiltins(this);
