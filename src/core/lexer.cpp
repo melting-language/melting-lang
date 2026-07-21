@@ -46,15 +46,15 @@ Token Lexer::number() {
     return Token(TokenType::Number, value, start);
 }
 
-Token Lexer::string_() {
+Token Lexer::string_(char quote) {
     int start = line_;
-    advance(); // skip opening "
+    advance(); // skip opening quote
     std::string value;
-    while (peek() != '"' && peek() != '\0') {
+    while (peek() != quote && peek() != '\0') {
         if (peek() == '\\') { advance(); value += advance(); }
         else value += advance();
     }
-    advance(); // skip closing "
+    advance(); // skip closing quote
     return Token(TokenType::String, value, start);
 }
 
@@ -99,7 +99,8 @@ std::vector<Token> Lexer::tokenize() {
         int line = line_;
 
         if (isdigit(c)) { tokens.push_back(number()); continue; }
-        if (c == '"') { tokens.push_back(string_()); continue; }
+        if (c == '"') { tokens.push_back(string_('"')); continue; }
+        if (c == '\'') { tokens.push_back(string_('\'')); continue; }
         if (isalpha(c) || c == '_') { tokens.push_back(identifier()); continue; }
 
         if (c == '+') { advance(); tokens.push_back(Token(TokenType::Plus, "+", line)); continue; }

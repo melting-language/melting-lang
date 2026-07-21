@@ -41,6 +41,6 @@ private:
     void skipLineComment();
     void skipBlockComment();
     Token number();
-    Token string_();
+    Token string_(char quote);
     Token identifier();
 };

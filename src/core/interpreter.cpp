@@ -659,9 +659,78 @@ std::string Interpreter::readFile(const std::string& path) {
     return ss.str();
 }
 
+// Expands {{ include("path/to/partial.html") }} directives in a template,
+// recursively (so an included partial can itself include others). The
+// included file is looked up relative to the including file's own
+// directory first (so `{{ include("navbar.html") }}` finds a sibling file),
+// falling back to the usual view-path resolution (relative to the entry
+// script's directory) so callers can also write full view paths like
+// `{{ include("views/partials/navbar.html") }}`.
+std::string Interpreter::expandIncludes(const std::string& content, const std::string& baseDir, int depth) {
+    if (depth > 16)
+        runtimeError("Too many nested {{ include(...) }} templates (possible include cycle)");
+    std::string out;
+    out.reserve(content.size());
+    size_t i = 0;
+    while (i < content.size()) {
+        size_t start = content.find("{{", i);
+        if (start == std::string::npos) {
+            out.append(content, i, std::string::npos);
+            break;
+        }
+        size_t p = start + 2;
+        auto skipWs = [&]() { while (p < content.size() && std::isspace(static_cast<unsigned char>(content[p]))) ++p; };
+        skipWs();
+        bool matched = false;
+        std::string includePath;
+        size_t matchEnd = 0;
+        if (content.compare(p, 7, "include") == 0) {
+            p += 7;
+            skipWs();
+            if (p < content.size() && content[p] == '(') {
+                ++p;
+                skipWs();
+                if (p < content.size() && (content[p] == '"' || content[p] == '\'')) {
+                    char quote = content[p];
+                    ++p;
+                    size_t pathStart = p;
+                    while (p < content.size() && content[p] != quote) ++p;
+                    if (p < content.size()) {
+                        includePath = content.substr(pathStart, p - pathStart);
+                        ++p;  // closing quote
+                        skipWs();
+                        if (p < content.size() && content[p] == ')') {
+                            ++p;
+                            skipWs();
+                            if (content.compare(p, 2, "}}") == 0) {
+                                p += 2;
+                                matched = true;
+                                matchEnd = p;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        if (matched) {
+            out.append(content, i, start - i);
+            std::string candidate = baseDir.empty() ? includePath : baseDir + "/" + includePath;
+            std::string resolvedPath = fileExists(candidate) ? candidate : resolvePath(includePath);
+            std::string includedRaw = readFile(resolvedPath);
+            out += expandIncludes(includedRaw, dirname(resolvedPath), depth + 1);
+            i = matchEnd;
+        } else {
+            out.append(content, i, start + 2 - i);
+            i = start + 2;
+        }
+    }
+    return out;
+}
+
 std::string Interpreter::renderViewTemplate(const std::string& path, std::shared_ptr<MeltObject> obj) {
     std::string fullPath = resolvePath(path);
     std::string content = readFile(fullPath);
+    content = expandIncludes(content, dirname(fullPath), 0);
     if (!obj) return content;
     for (const auto& kv : obj->fields) {
         const std::string& key = kv.first;
@@ -2030,9 +2099,28 @@ void Interpreter::registerBuiltins() {
         if (std::holds_alternative<std::shared_ptr<MeltArray>>(args[0])) return std::string("array");
         if (std::holds_alternative<std::shared_ptr<MeltObject>>(args[0])) return std::string("object");
         if (std::holds_alternative<std::shared_ptr<MeltClass>>(args[0])) return std::string("class");
-        if (std::holds_alternative<NativeFunc>(args[0]) || std::holds_alternative<MeltClosure>(args[0]) || std::holds_alternative<BoundMethod>(args[0]))
+        if (std::holds_alternative<NativeFunc>(args[0]) || std::holds_alternative<MeltClosure>(args[0]) ||
+            std::holds_alternative<BoundMethod>(args[0]) || std::holds_alternative<StaticMethod>(args[0]))
             return std::string("function");
         return std::string("unknown");
+    });
+    // callMethod(receiver, "methodName"[, argsArray]): call a method by name at
+    // runtime, e.g. for a route table storing [SomeController::class, "show"].
+    // `receiver` is an object (instance call) or a class (static call, no `this`).
+    variables_["callMethod"] = reg([](Interpreter* i, std::vector<Value> args) -> Value {
+        if (args.size() < 2 || !std::holds_alternative<std::string>(args[1]))
+            i->runtimeError("callMethod(receiver, methodName[, argsArray]) requires a receiver and a method name");
+        const std::string& name = std::get<std::string>(args[1]);
+        std::vector<Value> callArgs;
+        if (args.size() >= 3) {
+            auto* arr = std::get_if<std::shared_ptr<MeltArray>>(&args[2]);
+            if (arr && *arr) callArgs = (*arr)->data;
+        }
+        if (auto* obj = std::get_if<std::shared_ptr<MeltObject>>(&args[0]))
+            return i->invokeMethodByName((*obj)->klass, *obj, name, callArgs);
+        if (auto* kl = std::get_if<std::shared_ptr<MeltClass>>(&args[0]))
+            return i->invokeMethodByName(*kl, nullptr, name, callArgs);
+        i->runtimeError("callMethod: first argument must be an object or a class");
     });
     variables_["isNull"] = reg([](Interpreter* i, std::vector<Value> args) -> Value {
         (void)i;
@@ -2183,7 +2271,12 @@ void Interpreter::executeImport(const ImportStmt& stmt) {
     Lexer lexer(source);
     auto tokens = lexer.tokenize();
     Parser parser(std::move(tokens), resolved);
-    auto parsed = parser.parse();
+    // Keep the parsed AST alive for the program's lifetime: closures (fn ...)
+    // defined at the top level of an imported file hold a non-owning
+    // BlockStmt* into this tree, so it must outlive the import statement
+    // itself, not just the duration of this call.
+    importedAsts_.push_back(parser.parse());
+    const auto& parsed = importedAsts_.back();
     std::string prevDir = currentDir_;
     std::string prevFile = currentFile_;
     currentDir_ = dirname(resolved);
@@ -2451,49 +2544,45 @@ Value Interpreter::evaluateCall(const CallExpr& expr) {
     if (auto* klass = std::get_if<std::shared_ptr<MeltClass>>(&callee)) {
         auto obj = std::make_shared<MeltObject>();
         obj->klass = *klass;
-        Value prevThis = this_;
-        this_ = obj;
         auto it = (*klass)->methods.find("init");
         if (it != (*klass)->methods.end()) {
             const MeltMethod& init = it->second;
             if (init.params.size() != expr.args.size())
                 runtimeError("init argument count mismatch");
-            std::vector<std::string> paramNames = init.params;
+            // Evaluate all constructor arguments before binding any of them
+            // as params/fields, so an argument expression can still see the
+            // caller's variables even if a param happens to share its name.
+            std::vector<Value> argValues;
+            argValues.reserve(expr.args.size());
+            for (const auto& a : expr.args) argValues.push_back(evaluate(*a));
+            Value prevThis = this_;
+            this_ = obj;
+            const std::vector<std::string>& paramNames = init.params;
             for (size_t i = 0; i < paramNames.size(); ++i) {
-                Value argVal = evaluate(*expr.args[i]);
-                obj->fields[paramNames[i]] = argVal;
-                variables_[paramNames[i]] = argVal;
+                obj->fields[paramNames[i]] = argValues[i];
+                variables_[paramNames[i]] = argValues[i];
             }
             try {
                 for (const auto& s : init.body->statements) execute(*s);
             } catch (const ReturnException&) { /* init may return early; ignore */ }
             for (const auto& p : paramNames) variables_.erase(p);
+            this_ = prevThis;
         }
-        this_ = prevThis;
         return obj;
     }
 
     if (auto* bm = std::get_if<BoundMethod>(&callee)) {
-        Value prevThis = this_;
-        this_ = bm->receiver;
-        auto it = bm->receiver->klass->methods.find(bm->methodName);
-        if (it == bm->receiver->klass->methods.end())
-            runtimeError("Method not found: " + bm->methodName);
-        const MeltMethod& m = it->second;
-        if (m.params.size() != expr.args.size())
-            runtimeError("Argument count mismatch for " + bm->methodName);
-        std::vector<std::string> paramNames = m.params;
-        for (size_t i = 0; i < paramNames.size(); ++i)
-            variables_[paramNames[i]] = evaluate(*expr.args[i]);
-        Value result(std::monostate{});
-        try {
-            for (const auto& s : m.body->statements) execute(*s);
-        } catch (const ReturnException& e) {
-            result = e.value;
-        }
-        for (const auto& p : paramNames) variables_.erase(p);
-        this_ = prevThis;
-        return result;
+        std::vector<Value> argValues;
+        argValues.reserve(expr.args.size());
+        for (const auto& a : expr.args) argValues.push_back(evaluate(*a));
+        return invokeMethodByName(bm->receiver->klass, bm->receiver, bm->methodName, argValues);
+    }
+
+    if (auto* sm = std::get_if<StaticMethod>(&callee)) {
+        std::vector<Value> argValues;
+        argValues.reserve(expr.args.size());
+        for (const auto& a : expr.args) argValues.push_back(evaluate(*a));
+        return invokeMethodByName(sm->klass, nullptr, sm->methodName, argValues);
     }
 
     if (auto* nf = std::get_if<NativeFunc>(&callee)) {
@@ -2535,6 +2624,30 @@ Value Interpreter::evaluateCall(const CallExpr& expr) {
     runtimeError("Can only call class constructor, method, built-in, or lambda");
 }
 
+Value Interpreter::invokeMethodByName(std::shared_ptr<MeltClass> klass, std::shared_ptr<MeltObject> receiver,
+                                       const std::string& name, const std::vector<Value>& args) {
+    auto it = klass->methods.find(name);
+    if (it == klass->methods.end())
+        runtimeError("Method not found: " + name);
+    const MeltMethod& m = it->second;
+    if (m.params.size() != args.size())
+        runtimeError("Argument count mismatch for " + name);
+    Value prevThis = this_;
+    this_ = receiver ? Value(receiver) : Value(std::monostate{});
+    const std::vector<std::string>& paramNames = m.params;
+    for (size_t i = 0; i < paramNames.size(); ++i)
+        variables_[paramNames[i]] = args[i];
+    Value result(std::monostate{});
+    try {
+        for (const auto& s : m.body->statements) execute(*s);
+    } catch (const ReturnException& e) {
+        result = e.value;
+    }
+    for (const auto& p : paramNames) variables_.erase(p);
+    this_ = prevThis;
+    return result;
+}
+
 Value Interpreter::evaluateLambda(const LambdaExpr& expr) {
     MeltClosure cl;
     cl.params = expr.params;
@@ -2558,6 +2671,9 @@ Value Interpreter::getField(std::shared_ptr<MeltObject> obj, const std::string& 
 Value Interpreter::getClassField(std::shared_ptr<MeltClass> klass, const std::string& name) {
     auto it = klass->classFields.find(name);
     if (it != klass->classFields.end()) return it->second;
+    auto mit = klass->methods.find(name);
+    if (mit != klass->methods.end())
+        return StaticMethod{klass, name};
     runtimeError("Unknown class property: " + name);
 }
 
@@ -2662,12 +2778,18 @@ Value Interpreter::evaluateBinary(const BinaryExpr& expr) {
     if (std::holds_alternative<double>(right)) r = std::get<double>(right);
 
     if (expr.op == "+") {
-        if (std::holds_alternative<std::string>(left) && std::holds_alternative<std::string>(right))
-            return std::get<std::string>(left) + std::get<std::string>(right);
-        if (std::holds_alternative<std::string>(left))
-            return std::get<std::string>(left) + std::to_string(static_cast<long long>(r));
-        if (std::holds_alternative<std::string>(right))
-            return std::to_string(static_cast<long long>(l)) + std::get<std::string>(right);
+        // Any non-number, non-string value (bool, object, array, ...)
+        // concatenated onto a string used to silently coerce through the
+        // number path above (defaulting to 0) -- e.g. "x=" + true produced
+        // "x=0" regardless of the bool's value. Route through the same
+        // stringifier used for view/template rendering instead.
+        if (std::holds_alternative<std::string>(left) || std::holds_alternative<std::string>(right)) {
+            auto stringify = [](const Value& v) -> std::string {
+                if (std::holds_alternative<std::string>(v)) return std::get<std::string>(v);
+                return valueToViewString(v);
+            };
+            return stringify(left) + stringify(right);
+        }
         return l + r;
     }
     if (expr.op == "-") return l - r;
@@ -2710,6 +2832,9 @@ void Interpreter::printValue(const Value& v) {
         std::cout << "<" << std::get<std::shared_ptr<MeltObject>>(v)->klass->name << " instance>";
     } else if (std::holds_alternative<BoundMethod>(v)) {
         std::cout << "<bound method>";
+    } else if (std::holds_alternative<StaticMethod>(v)) {
+        auto& sm = std::get<StaticMethod>(v);
+        std::cout << "<static method " << sm.klass->name << "::" << sm.methodName << ">";
     } else if (std::holds_alternative<NativeFunc>(v)) {
         std::cout << "<native function>";
     } else if (std::holds_alternative<MeltClosure>(v)) {

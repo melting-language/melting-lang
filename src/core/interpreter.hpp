@@ -25,6 +25,12 @@ struct BoundMethod {
     std::string methodName;
 };
 
+// A method referenced via Class::method (no receiver instance) -- e.g. Route::get(...).
+struct StaticMethod {
+    std::shared_ptr<MeltClass> klass;
+    std::string methodName;
+};
+
 struct NativeFunc {
     size_t index = 0;  // index into Interpreter::nativeFunctions_
 };
@@ -47,7 +53,7 @@ struct MeltVec;   // forward
 using Value = std::variant<std::monostate, double, std::string, bool,
     std::shared_ptr<MeltClass>, std::shared_ptr<MeltObject>, std::shared_ptr<MeltArray>,
     std::shared_ptr<MeltVec>,
-    BoundMethod, NativeFunc, MeltClosure>;
+    BoundMethod, StaticMethod, NativeFunc, MeltClosure>;
 
 struct MeltArray {
     std::vector<Value> data;
@@ -142,6 +148,7 @@ private:
     std::string currentFile_;  // current source file path (for error messages)
     int currentLine_ = 0;     // current statement line (for error messages)
     std::set<std::string> importedPaths_;  // avoid circular/repeated imports
+    std::vector<std::vector<std::unique_ptr<Stmt>>> importedAsts_;  // keeps imported files' AST alive for the program's lifetime (closures hold non-owning pointers into it)
     std::string binDir_;  // directory containing the melt binary (for melt.ini, extensions)
     std::vector<std::string> modulePath_;  // additional directories to search for imports (from melt.config or addModulePath)
     bool traceEnabled_ = false;   // if true, print each executed statement line to stderr
@@ -193,6 +200,7 @@ private:
     std::string resolveImportPath(const std::string& path);  // resolve import path (currentDir + modulePath), add .melt if needed
     std::string readFile(const std::string& path);
     std::string renderViewTemplate(const std::string& path, std::shared_ptr<MeltObject> obj);
+    std::string expandIncludes(const std::string& content, const std::string& baseDir, int depth);
     bool saveImagePpm(const std::string& path) const;
 
     void execute(Stmt& stmt);
@@ -226,6 +234,11 @@ private:
     Value evaluateThis(const ThisExpr& expr);
     Value evaluateGet(const GetExpr& expr);
     Value evaluateCall(const CallExpr& expr);
+    // Shared method-invocation core, used by instance calls (obj.method()),
+    // static calls (Class::method()), and the callMethod(...) builtin.
+    // `receiver` is null for a static call (no `this` inside the method).
+    Value invokeMethodByName(std::shared_ptr<MeltClass> klass, std::shared_ptr<MeltObject> receiver,
+                              const std::string& name, const std::vector<Value>& args);
     Value evaluateLambda(const LambdaExpr& expr);
     Value evaluateArray(const ArrayExpr& expr);
     Value evaluateMap(const MapExpr& expr);
